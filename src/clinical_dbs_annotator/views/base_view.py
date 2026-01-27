@@ -52,7 +52,7 @@ class BaseStepView(QWidget):
             QWidget containing the header elements with fixed height
         """
         header_widget = QWidget()
-        header_widget.setMaximumHeight(80)
+        header_widget.setMaximumHeight(60)
         header_row = QHBoxLayout(header_widget)
         header_row.setContentsMargins(0, 0, 0, 0)
 
@@ -85,7 +85,7 @@ class BaseStepView(QWidget):
             QWidget containing the header elements with fixed height
         """
         header_widget = QWidget()
-        header_widget.setMaximumHeight(100)
+        header_widget.setMaximumHeight(80)
         header_row = QHBoxLayout(header_widget)
         header_row.setContentsMargins(0, 0, 0, 0)
 
@@ -93,7 +93,7 @@ class BaseStepView(QWidget):
         if self.logo_pixmap:
             image_label = QLabel()
             logo = self.logo_pixmap.scaledToWidth(80, Qt.SmoothTransformation)
-            logo = rounded_pixmap(logo, 10)
+            logo = rounded_pixmap(logo, 7)
             image_label.setPixmap(logo)
             image_label.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
             header_row.addWidget(image_label, 1)
@@ -101,7 +101,7 @@ class BaseStepView(QWidget):
         # Welcome text (larger for first step)
         welcome_label = QLabel(welcome_text)
         welcome_label.setStyleSheet("font-size: 16pt; font-weight: 500;")
-        welcome_label.setAlignment(Qt.AlignVCenter | Qt.AlignCenter)
+        welcome_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         welcome_label.setWordWrap(True)
         header_row.addWidget(welcome_label, 4)
 

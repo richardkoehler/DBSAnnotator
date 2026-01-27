@@ -6,11 +6,9 @@ the application.
 """
 
 from .widgets import IncrementWidget, create_horizontal_line, create_section_label
-from .multiselect_combo import MultiSelectComboBoxWithDisplay
 
 __all__ = [
     "IncrementWidget",
     "create_horizontal_line",
     "create_section_label",
-    "MultiSelectComboBoxWithDisplay",
 ]

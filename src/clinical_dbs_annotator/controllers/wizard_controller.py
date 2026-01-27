@@ -14,8 +14,8 @@ from ..config import (
     SESSION_SCALES_PRESETS,
 )
 from ..models import ClinicalScale, SessionData, SessionScale, StimulationParameters
+from ..config_electrode_models import ELECTRODE_MODELS
 from ..utils import animate_button
-from ..utils.session_exporter import SessionExporter
 
 
 class WizardController:
@@ -34,9 +34,20 @@ class WizardController:
         """Initialize the wizard controller."""
         self.session_data = SessionData()
         self.current_stimulation = StimulationParameters()
+        self.current_group: str = ""
+        self.current_electrode_model_name: str = ""
         self.session_scales_names: List[str] = []
+        self.session_scales_data: List[Tuple[str, str, str]] = []
         self.workflow_mode: Optional[str] = None  # "full" or "annotations_only"
-        self.session_exporter = SessionExporter(self.session_data)
+        self._session_exporter = None  # Lazy-loaded SessionExporter
+
+    @property
+    def session_exporter(self):
+        """Lazy-load SessionExporter to avoid heavy imports at startup."""
+        if self._session_exporter is None:
+            from ..utils.session_exporter import SessionExporter
+            self._session_exporter = SessionExporter(self.session_data)
+        return self._session_exporter
 
     def apply_clinical_preset(self, preset_name: str, view) -> None:
         """
@@ -193,7 +204,11 @@ class WizardController:
 
         # Open the session data file if not already open
         if not self.session_data.is_file_open():
-            self.session_data.open_file(file_path)
+            if getattr(view, "current_file_mode", None) == "existing":
+                start_block_id = getattr(view, "next_block_id", None)
+                self.session_data.open_file_append(file_path, start_block_id=start_block_id)
+            else:
+                self.session_data.open_file(file_path)
 
         # Collect clinical scales
         clinical_scales = []
@@ -206,24 +221,27 @@ class WizardController:
         # Collect stimulation parameters
         stimulation = StimulationParameters(
             left_frequency=view.left_stim_freq_edit.text(),
-            left_cathode=view.left_cathode_combo.get_selected_text(),
-            left_anode=view.left_anode_combo.get_selected_text(),
+            left_cathode=view.get_left_cathode_text(),
+            left_anode=view.get_left_anode_text(),
             left_amplitude=view.left_amp_edit.text(),
             left_pulse_width=view.left_pw_edit.text(),
             right_frequency=view.right_stim_freq_edit.text(),
-            right_cathode=view.right_cathode_combo.get_selected_text(),
-            right_anode=view.right_anode_combo.get_selected_text(),
+            right_cathode=view.get_right_cathode_text(),
+            right_anode=view.get_right_anode_text(),
             right_amplitude=view.right_amp_edit.text(),
             right_pulse_width=view.right_pw_edit.text(),
         )
 
         notes = view.notes_edit.toPlainText()
+        group = view.group_combo.currentText() if hasattr(view, "group_combo") else ""
 
         # Write to file
-        self.session_data.write_clinical_scales(clinical_scales, stimulation, notes)
+        self.session_data.write_clinical_scales(clinical_scales, stimulation, group=group, notes=notes)
 
         # Store stimulation for next step
         self.current_stimulation = stimulation
+        self.current_group = group
+        self.current_electrode_model_name = view.model_combo.currentText() if hasattr(view, "model_combo") else ""
 
         return True
 
@@ -251,12 +269,16 @@ class WizardController:
         Returns:
             Always True (no validation required)
         """
-        # Collect session scale names
+        # Collect session scale names and data
         self.session_scales_names = []
-        for name_edit, _, _, _ in view.session_scales_rows:
+        self.session_scales_data = []
+        for name_edit, min_edit, max_edit, _ in view.session_scales_rows:
             name = name_edit.text().strip()
-            if name:
+            min_val = min_edit.text().strip()
+            max_val = max_edit.text().strip()
+            if name and min_val and max_val:
                 self.session_scales_names.append(name)
+                self.session_scales_data.append((name, min_val, max_val))
 
         return True
 
@@ -267,6 +289,10 @@ class WizardController:
         Args:
             view: The Step3View instance
         """
+        model = ELECTRODE_MODELS.get(self.current_electrode_model_name)
+        if model and hasattr(view, "set_electrode_model"):
+            view.set_electrode_model(model)
+
         # Set initial stimulation parameters from Step 1
         view.set_initial_stimulation_params(
             self.current_stimulation.left_frequency or "",
@@ -279,10 +305,11 @@ class WizardController:
             self.current_stimulation.right_anode or "",
             self.current_stimulation.right_amplitude or "",
             self.current_stimulation.right_pulse_width or "",
+            self.current_group or "",
         )
 
         # Update session scales
-        view.update_session_scales(self.session_scales_names)
+        view.update_session_scales(self.session_scales_data)
 
     def insert_session_row(self, view) -> None:
         """
@@ -302,21 +329,22 @@ class WizardController:
         # Collect current stimulation parameters
         stimulation = StimulationParameters(
             left_frequency=view.session_left_stim_freq_edit.text(),
-            left_cathode=view.session_left_cathode_combo.get_selected_text(),
-            left_anode=view.session_left_anode_combo.get_selected_text(),
+            left_cathode=view.get_left_cathode_text(),
+            left_anode=view.get_left_anode_text(),
             left_amplitude=view.session_left_amp_edit.text(),
             left_pulse_width=view.session_left_pw_edit.text(),
             right_frequency=view.session_right_stim_freq_edit.text(),
-            right_cathode=view.session_right_cathode_combo.get_selected_text(),
-            right_anode=view.session_right_anode_combo.get_selected_text(),
+            right_cathode=view.get_right_cathode_text(),
+            right_anode=view.get_right_anode_text(),
             right_amplitude=view.session_right_amp_edit.text(),
             right_pulse_width=view.session_right_pw_edit.text(),
         )
 
         notes = view.session_notes_edit.toPlainText()
+        group = view.group_combo.currentText() if hasattr(view, "group_combo") else ""
 
         # Write to file
-        self.session_data.write_session_scales(session_scales, stimulation, notes)
+        self.session_data.write_session_scales(session_scales, stimulation, group=group, notes=notes)
 
         # Animate button and clear notes
         animate_button(view.insert_button)

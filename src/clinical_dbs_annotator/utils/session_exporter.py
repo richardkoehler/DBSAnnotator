@@ -18,6 +18,8 @@ from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
+from ..config import PLACEHOLDERS
+
 class SessionExporter:
     """
     Handles exporting session data to various formats.
@@ -207,7 +209,7 @@ class SessionExporter:
             right_row = {}
             
             # Common columns (non-lateral)
-            common_cols = ['scale_name', 'scale_value', 'session_condition', 'notes']
+            common_cols = ['group', 'scale_name', 'scale_value', 'session_condition', 'notes']
             for col in common_cols:
                 if col in df.columns:
                     left_row[col] = row[col]
@@ -245,6 +247,44 @@ class SessionExporter:
             lateral_data.append(right_row)
         
         return pd.DataFrame(lateral_data)
+
+    def _column_header(self, col: str) -> str:
+        placeholder_map = {
+            "scale_name": PLACEHOLDERS.get("scale_name"),
+            "scale_value": PLACEHOLDERS.get("scale_value"),
+            "frequency": PLACEHOLDERS.get("frequency"),
+            "anode": "+",
+            "cathode": "-",
+            "amplitude": PLACEHOLDERS.get("amplitude"),
+            "pulse_width": PLACEHOLDERS.get("pulse_width"),
+            "group": "Group",
+        }
+        if col in placeholder_map and placeholder_map[col]:
+            return str(placeholder_map[col])
+        return str(col).replace('_', ' ').title()
+
+    def _compute_table_widths_points(self, ordered_columns, page_width_points: float) -> list:
+        base = {
+            'laterality': 55,
+            'group': 45,
+            'frequency': 55,
+            'cathode': 80,
+            'anode': 80,
+            'amplitude': 60,
+            'pulse_width': 60,
+            'scale_name': 80,
+            'scale_value': 55,
+            'session_condition': 70,
+        }
+        widths = [base.get(col, 60) for col in ordered_columns]
+        if 'notes' in ordered_columns:
+            notes_idx = ordered_columns.index('notes')
+            min_notes = 160
+            widths[notes_idx] = min_notes
+            used = sum(widths)
+            if used < page_width_points:
+                widths[notes_idx] += (page_width_points - used)
+        return widths
 
     def export_to_pdf(self, parent: Optional[QWidget] = None) -> bool:
         """
@@ -366,7 +406,7 @@ class SessionExporter:
             
             # Reorder columns: lateral parameters first, then common data at the end
             lateral_cols = ['laterality', 'frequency', 'cathode', 'anode', 'amplitude', 'pulse_width']
-            common_cols = ['scale_name', 'scale_value', 'session_condition', 'notes']
+            common_cols = ['group', 'scale_name', 'scale_value', 'session_condition', 'notes']
             
             # Filter available columns
             lateral_cols = [col for col in lateral_cols if col in display_columns]
@@ -374,7 +414,7 @@ class SessionExporter:
             ordered_columns = lateral_cols + common_cols
             
             # Prepare data for table
-            table_data = [ordered_columns]
+            table_data = [[self._column_header(c) for c in ordered_columns]]
             for _, row in lateral_df.iterrows():
                 row_data = []
                 for col in ordered_columns:
@@ -383,7 +423,9 @@ class SessionExporter:
                 table_data.append(row_data)
             
             # Create main data table
-            data_table = Table(table_data)
+            page_width = doc.pagesize[0] - doc.leftMargin - doc.rightMargin
+            col_widths = self._compute_table_widths_points(ordered_columns, page_width)
+            data_table = Table(table_data, colWidths=col_widths)
             
             # Style the table with thin lines
             table_style = TableStyle([
@@ -545,7 +587,7 @@ class SessionExporter:
             
             # Reorder columns: lateral parameters first, then common data at the end
             lateral_cols = ['laterality', 'frequency', 'cathode', 'anode', 'amplitude', 'pulse_width']
-            common_cols = ['scale_name', 'scale_value', 'session_condition', 'notes']
+            common_cols = ['group', 'scale_name', 'scale_value', 'session_condition', 'notes']
             
             # Filter available columns
             lateral_cols = [col for col in lateral_cols if col in display_columns]
@@ -554,6 +596,7 @@ class SessionExporter:
             # Convert DataFrame to table with thin grid
             table = doc.add_table(rows=lateral_df.shape[0] + 1, cols=len(ordered_columns))
             table.style = 'Table Grid'
+            table.autofit = False
             
             # Set thin borders for entire table first
             for row in table.rows:
@@ -567,11 +610,41 @@ class SessionExporter:
             # Add header row
             hdr_cells = table.rows[0].cells
             for i, col_name in enumerate(ordered_columns):
-                hdr_cells[i].text = str(col_name).replace('_', ' ').title()
+                hdr_cells[i].text = self._column_header(col_name)
                 # Make header bold
                 for paragraph in hdr_cells[i].paragraphs:
                     for run in paragraph.runs:
                         run.font.bold = True
+
+            # Set column widths: keep minimums, give remaining to notes
+            try:
+                section = doc.sections[0]
+                page_width_inches = (section.page_width - section.left_margin - section.right_margin) / 914400
+
+                base_in = {
+                    'laterality': 0.7,
+                    'group': 0.6,
+                    'frequency': 0.8,
+                    'cathode': 1.1,
+                    'anode': 1.1,
+                    'amplitude': 0.9,
+                    'pulse_width': 0.9,
+                    'scale_name': 1.1,
+                    'scale_value': 0.8,
+                    'session_condition': 1.0,
+                }
+                widths_in = [base_in.get(c, 0.9) for c in ordered_columns]
+                if 'notes' in ordered_columns:
+                    notes_idx = ordered_columns.index('notes')
+                    widths_in[notes_idx] = 2.0
+                    used = sum(widths_in)
+                    if used < page_width_inches:
+                        widths_in[notes_idx] += (page_width_inches - used)
+
+                for i, w in enumerate(widths_in):
+                    table.columns[i].width = Inches(max(0.4, w))
+            except Exception:
+                pass
             
             # Add data rows with merged cells for common data
             for i, (_, row) in enumerate(lateral_df.iterrows()):

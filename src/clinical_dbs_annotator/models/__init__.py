@@ -8,10 +8,14 @@ stimulation parameters, and session information.
 from .clinical_scale import ClinicalScale, SessionScale
 from .stimulation import StimulationParameters
 from .session_data import SessionData
+from .electrode_viewer import ElectrodeCanvas
 
 __all__ = [
     "ClinicalScale",
     "SessionScale",
     "StimulationParameters",
     "SessionData",
+    "ElectrodeCanvas",
 ]
+
+

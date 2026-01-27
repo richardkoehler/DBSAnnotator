@@ -190,6 +190,7 @@ dependencies = [
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pydantic" },
+    { name = "pyinstaller" },
     { name = "pyqt5" },
     { name = "pyqt5-qt5" },
     { name = "python-docx" },
@@ -216,6 +217,11 @@ docs = [
     { name = "sphinx-rtd-theme" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pyinstaller" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.0.0" },
@@ -224,6 +230,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.1" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyinstaller", specifier = ">=6.15.0" },
     { name = "pyinstaller", marker = "extra == 'build'", specifier = ">=6.15.0" },
     { name = "pyqt5", specifier = "==5.15.10" },
     { name = "pyqt5-qt5", specifier = "==5.15.2" },
@@ -238,6 +245,9 @@ requires-dist = [
     { name = "sphinx-rtd-theme", marker = "extra == 'docs'" },
 ]
 provides-extras = ["dev", "build", "docs"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pyinstaller", specifier = ">=6.15.0" }]
 
 [[package]]
 name = "colorama"

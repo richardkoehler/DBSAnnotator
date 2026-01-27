@@ -38,7 +38,9 @@ class SessionData:
         self.file_path = file_path
         self.tsv_file: Optional[TextIO] = None
         self.tsv_writer: Optional[csv.DictWriter] = None
+        self.tsv_fieldnames: Optional[List[str]] = None
         self.block_id: int = 0
+        self.session_id: int = 1
         self.session_start_time: Optional[datetime] = None
 
         if file_path:
@@ -52,11 +54,80 @@ class SessionData:
             file_path: Path to the TSV file
         """
         self.file_path = file_path
+        self.close_file()
+        self.block_id = 0
+        self.session_id = 1
         self.tsv_file = open(file_path, "w", newline="", encoding="utf-8")
+        self.tsv_fieldnames = list(TSV_COLUMNS)
         self.tsv_writer = csv.DictWriter(
-            self.tsv_file, fieldnames=TSV_COLUMNS, delimiter="\t"
+            self.tsv_file,
+            fieldnames=self.tsv_fieldnames,
+            delimiter="\t",
+            extrasaction="ignore",
         )
         self.tsv_writer.writeheader()
+        self.session_start_time = datetime.now()
+
+    def open_file_append(self, file_path: str, start_block_id: Optional[int] = None) -> None:
+        """Open an existing TSV file in append mode and continue block numbering."""
+        self.file_path = file_path
+        self.close_file()
+
+        file_exists = Path(file_path).exists()
+        if not file_exists:
+            self.open_file(file_path)
+            return
+
+        # Calculate next session_id and block_id
+        max_block = -1
+        max_session = 0
+        try:
+            with open(file_path, "r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f, delimiter="\t")
+                for row in reader:
+                    try:
+                        # Get max block_id
+                        val = row.get("block_id", None)
+                        if val is not None and val != "":
+                            max_block = max(max_block, int(float(val)))
+                        
+                        # Get max session_ID
+                        session_val = row.get("session_ID", None)
+                        if session_val is not None and session_val != "":
+                            max_session = max(max_session, int(float(session_val)))
+                    except Exception:
+                        continue
+        except Exception:
+            max_block = -1
+            max_session = 0
+
+        if start_block_id is None:
+            start_block_id = max_block + 1
+        
+        self.block_id = int(start_block_id)
+        self.session_id = max_session + 1
+        self.tsv_file = open(file_path, "a", newline="", encoding="utf-8")
+        existing_fieldnames: Optional[List[str]] = None
+        try:
+            with open(file_path, "r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f, delimiter="\t")
+                existing_fieldnames = reader.fieldnames
+        except Exception:
+            existing_fieldnames = None
+
+        self.tsv_fieldnames = existing_fieldnames or list(TSV_COLUMNS)
+
+        self.tsv_writer = csv.DictWriter(
+            self.tsv_file,
+            fieldnames=self.tsv_fieldnames,
+            delimiter="\t",
+            extrasaction="ignore",
+        )
+        try:
+            if Path(file_path).stat().st_size == 0:
+                self.tsv_writer.writeheader()
+        except Exception:
+            pass
         self.session_start_time = datetime.now()
 
     def is_file_open(self) -> bool:
@@ -79,6 +150,7 @@ class SessionData:
         self,
         scales: List[ClinicalScale],
         stimulation: StimulationParameters,
+        group: str = "",
         notes: str = "",
     ) -> None:
         """
@@ -92,6 +164,9 @@ class SessionData:
         if not self.tsv_writer:
             raise ValueError("TSV file not opened. Call open_file() first.")
 
+        tz = pytz.timezone(TIMEZONE)
+        now_et = datetime.now(tz)
+        time_str = now_et.strftime("%H:%M:%S")
         today = datetime.now().strftime("%Y-%m-%d")
         stim_dict = stimulation.to_dict()
 
@@ -100,8 +175,10 @@ class SessionData:
         if not valid_scales:
             row = {
                 "date": today,
-                "time": "0",
+                "time": time_str,
                 "block_id": self.block_id,
+                "group_ID": group,
+                "session_ID": self.session_id,
                 "scale_name": None,
                 "scale_value": None,
                 "notes": notes,
@@ -113,8 +190,10 @@ class SessionData:
             for scale in valid_scales:
                 row = {
                     "date": today,
-                    "time": "0",
+                    "time": time_str,
                     "block_id": self.block_id,
+                    "group_ID": group,
+                    "session_ID": self.session_id,
                     "scale_name": scale.name,
                     "scale_value": scale.value,
                     "notes": notes,
@@ -129,6 +208,7 @@ class SessionData:
         self,
         scales: List[SessionScale],
         stimulation: StimulationParameters,
+        group: str = "",
         notes: str = "",
     ) -> None:
         """
@@ -156,6 +236,8 @@ class SessionData:
                 "date": today,
                 "time": time_str,
                 "block_id": self.block_id,
+                "group_ID": group,
+                "session_ID": self.session_id,
                 "scale_name": None,
                 "scale_value": None,
                 "notes": notes,
@@ -169,6 +251,8 @@ class SessionData:
                     "date": today,
                     "time": time_str,
                     "block_id": self.block_id,
+                    "group_ID": group,
+                    "session_ID": self.session_id,
                     "scale_name": scale.name,
                     "scale_value": scale.current_value,
                     "notes": notes,
@@ -249,6 +333,8 @@ class SessionData:
         # Write row
         row = {
             "time": time_str,
+            "group_ID": "",  # Empty for simple annotations
+            "session_ID": self.session_id,
             "annotation": annotation,
         }
         self.tsv_writer.writerow(row)

@@ -59,20 +59,18 @@ class Step2View(BaseStepView):
     def _setup_ui(self) -> None:
         """Set up the UI layout."""
         # Header
-        header = self.create_header("Which session scales would you like to track?")
+        header = self.create_header("Session Scale Configuration")
         self.main_layout.addWidget(header)
 
         # Session scales group
         session_group = self._create_session_scales_group()
         self.main_layout.addWidget(session_group)
-        self.main_layout.addStretch(1)
+        #self.main_layout.addStretch(1)
 
-        # Next button
         self.next_button = QPushButton("Next")
         self.next_button.setIcon(self.parent_style.standardIcon(QStyle.SP_ArrowForward))
         self.next_button.setIconSize(QSize(16, 16))
         self.next_button.setMaximumWidth(120)
-        self.main_layout.addWidget(self.next_button, alignment=Qt.AlignRight)
 
     def _create_session_scales_group(self) -> QGroupBox:
         """Create the session scales group box."""
@@ -82,7 +80,6 @@ class Step2View(BaseStepView):
         )
         gb_session.setFont(QFont("Segoe UI", 10, QFont.Bold))
         gb_session.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        gb_session.setMinimumHeight(400)  # Increased height for better visibility
 
         layout = QVBoxLayout(gb_session)
 
@@ -103,7 +100,7 @@ class Step2View(BaseStepView):
 
         # Container for dynamic scale rows - expands to show all rows
         scroll_content = QWidget()
-        scroll_content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        scroll_content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         self.session_scales_container = QVBoxLayout(scroll_content)
         self.session_scales_container.setContentsMargins(0, 0, 0, 0)
 
@@ -113,7 +110,7 @@ class Step2View(BaseStepView):
         scroll_area.setFrameShape(QScrollArea.NoFrame)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         scroll_area.setWidget(scroll_content)
 
         layout.addWidget(scroll_area)
@@ -125,6 +122,7 @@ class Step2View(BaseStepView):
         return self.findChild(QPushButton, f"preset2_{preset_name}")
 
     def _load_session_presets(self) -> Dict[str, List[Tuple[str, str, str]]]:
+        """Load session presets from JSON file."""
         presets_file = resource_path("config/session_scales_presets.json")
 
         if os.path.exists(presets_file):
@@ -134,15 +132,20 @@ class Step2View(BaseStepView):
                 presets: Dict[str, List[Tuple[str, str, str]]] = {}
                 for name, scales in (raw or {}).items():
                     try:
-                        presets[name] = [tuple(x) for x in scales]
-                    except Exception:
+                        presets[name] = [
+                            (scale[0], scale[1], scale[2]) if len(scale) == 3 
+                            else (scale[0], scale[1], scale[2]) if len(scale) >= 3 
+                            else (scale[0], "", "")
+                            for scale in scales
+                        ]
+                    except (IndexError, TypeError):
                         presets[name] = []
                 return presets
             except Exception as e:
                 print(f"Error loading session presets: {e}")
                 return {}
-
-        return {k: list(v) for k, v in SESSION_SCALES_PRESETS.items()}
+        else:
+            return {k: list(v) for k, v in SESSION_SCALES_PRESETS.items()}
 
     def _open_session_scales_settings(self):
         dialog = SessionScalesSettingsDialog(self.session_presets, self, PRESET_BUTTONS)

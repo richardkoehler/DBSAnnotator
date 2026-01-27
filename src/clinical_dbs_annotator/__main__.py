@@ -6,6 +6,7 @@ and main window creation.
 """
 
 import sys
+import traceback
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication
@@ -21,38 +22,45 @@ def main() -> int:
     Returns:
         Exit code (0 for success)
     """
-    # Check for required dependencies
     try:
-        import pytz  # noqa: F401
-    except ImportError:
-        print("Error: pytz is required. Install with: pip install pytz")
-        return 1
+        # Check for required dependencies
+        try:
+            import pytz  # noqa: F401
+        except ImportError:
+            print("Error: pytz is required. Install with: pip install pytz")
+            return 1
 
-    # Enable high DPI support
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+        # Enable high DPI support
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
-    # Create application
-    app = QApplication(sys.argv)
+        # Create application
+        app = QApplication(sys.argv)
 
-    # Set application metadata
-    app.setApplicationName("Clinical DBS Annotator")
-    app.setOrganizationName("BML")
+        # Set application metadata
+        app.setApplicationName("Clinical DBS Annotator")
+        app.setOrganizationName("BML")
 
-    # Load and apply theme
-    theme_manager = get_theme_manager()
-    try:
-        theme_manager.apply_theme(theme_manager.get_current_theme(), app)
+        # Load and apply theme
+        theme_manager = get_theme_manager()
+        try:
+            theme_manager.apply_theme(theme_manager.get_current_theme(), app)
+        except Exception as e:
+            print(f"Warning: Could not load theme: {e}")
+            print("Continuing with default styling...")
+
+        # Create and show main window
+        window = WizardWindow(app)
+        window.show()
+
+        # Run application
+        return app.exec_()
+        
     except Exception as e:
-        print(f"Warning: Could not load theme: {e}")
-        print("Continuing with default styling...")
-
-    # Create and show main window
-    window = WizardWindow(app)
-    window.show()
-
-    # Run application
-    return app.exec_()
+        print("FATAL ERROR:")
+        traceback.print_exc()
+        input("Press Enter to exit...")
+        return 1
 
 
 if __name__ == "__main__":

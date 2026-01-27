@@ -20,10 +20,10 @@ ICONS_DIR = "icons"
 
 # Window configuration
 WINDOW_SIZE_RATIO = {
-    "x": 0.1,
-    "y": 0.1,
-    "width": 0.6,  # Increased from 0.4 to 0.6 for better visibility
-    "height": 0.7,  # Increased from 0.4 to 0.7 for better visibility
+    "x": 0.02,
+    "y": 0.02,
+    "width": 0.95,
+    "height": 0.95,
 }
 
 # Minimum window size (in pixels) for usability
@@ -34,8 +34,8 @@ WINDOW_MIN_SIZE = {
 
 # Maximum window size ratio (prevents window from being too large on big screens)
 WINDOW_MAX_SIZE_RATIO = {
-    "width": 0.85,
-    "height": 0.85,
+    "width": 0.98,
+    "height": 0.98,
 }
 
 # Responsive font scaling based on DPI
@@ -47,6 +47,8 @@ TSV_COLUMNS = [
     "date",
     "time",
     "block_id",
+    "group_ID",
+    "session_ID",
     "scale_name",
     "scale_value",
     "left_stim_freq",
@@ -126,7 +128,7 @@ COLORS = {
 
 FONTS = {
     "default": ("Segoe UI", 12),
-    "section": ("Segoe UI", 18),
+    "section": ("Segoe UI", 16),
     "title": ("Segoe UI", 20),
 }
 
@@ -152,11 +154,11 @@ BUTTON_SIZES = {
 # Placeholders
 PLACEHOLDERS = {
     "frequency": "Hz",
-    "contact": "e#",
+    "contact": "E#",
     "amplitude": "mA",
     "pulse_width": "µs",
     "scale_value": "Value",
-    "scale_name": "Name",
+    "scale_name": "Scale",
     "scale_score": "Score",
     "scale_min": "Min",
     "scale_max": "Max",

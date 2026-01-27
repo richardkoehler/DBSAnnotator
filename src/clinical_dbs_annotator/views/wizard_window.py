@@ -10,12 +10,22 @@ import os
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QMessageBox,
+    QDialog,
+    QVBoxLayout,
     QHBoxLayout,
+    QLabel,
     QPushButton,
+    QTextEdit,
+    QScrollArea,
+    QFrame,
+    QWidget,
+    QSizePolicy,
     QStackedWidget,
     QStyle,
-    QVBoxLayout,
-    QWidget,
+    QSpacerItem,
 )
 
 from ..config import (
@@ -113,6 +123,9 @@ class WizardWindow(QWidget):
 
         # Make window resizable
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
+        
+        # Set smaller size for step 0 (mode selection)
+        self._update_window_size_for_step0()
 
     def _setup_ui(self) -> None:
         """Set up the main UI layout."""
@@ -124,6 +137,9 @@ class WizardWindow(QWidget):
 
         # Create stacked widget for steps
         self.stack = QStackedWidget(self)
+        self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.stack.currentChanged.connect(lambda _: self._update_ui_state())
 
         # Create Step 0 - Mode selection
         self.step0_view = Step0View(self)
@@ -139,7 +155,17 @@ class WizardWindow(QWidget):
         self.annotations_file_view = None
         self.annotations_session_view = None
 
-        main_layout.addWidget(self.stack)
+        self.stack_scroll_area = QScrollArea(self)
+        self.stack_scroll_area.setWidgetResizable(True)
+        self.stack_scroll_area.setFrameShape(QFrame.NoFrame)
+        self.stack_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.stack_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.stack_scroll_area.setWidget(self.stack)
+        main_layout.addWidget(self.stack_scroll_area)
+
+        # Add a spacer that can shrink/grow to help with resizing
+        spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
+        main_layout.addItem(spacer)
 
         # Navigation bar
         nav_layout = self._create_nav_bar()
@@ -166,6 +192,15 @@ class WizardWindow(QWidget):
 
         header_layout.addWidget(self.theme_toggle_btn)
 
+        # Info button
+        self.info_btn = QPushButton()
+        self.info_btn.setObjectName("info_button")
+        self.info_btn.setToolTip("Info / Help")
+        self.info_btn.setCursor(Qt.PointingHandCursor)
+        self.info_btn.setText("Help")
+        self.info_btn.clicked.connect(self._show_info_dialog)
+        header_layout.addWidget(self.info_btn)
+
         return header_layout
 
     def _update_theme_button_icon(self) -> None:
@@ -179,6 +214,76 @@ class WizardWindow(QWidget):
             self.theme_toggle_btn.setText("☀")  # Sun = will switch to light
         else:
             self.theme_toggle_btn.setText("🌙")  # Moon = will switch to dark
+
+    def _show_info_dialog(self) -> None:
+        """Show application info dialog with help and contact information."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("About Clinical DBS Annotator")
+        dialog.setMinimumSize(600, 500)
+        dialog.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Title and version
+        title_label = QLabel(f"<h2>{APP_NAME} v{APP_VERSION}</h2>")
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+        
+        # Description
+        desc_text = QTextEdit()
+        desc_text.setReadOnly(True)
+        desc_text.setHtml("""
+        <h3>About this application</h3>
+        <p>Clinical DBS Annotator is a specialized tool for clinicians and researchers 
+        working with Deep Brain Stimulation (DBS) systems. This application provides:</p>
+        <ul>
+            <li>Interactive electrode visualization and configuration</li>
+            <li>Clinical scale assessment and tracking</li>
+            <li>Session annotation and management</li>
+            <li>Export functionality for clinical documentation</li>
+        </ul>
+        
+        <h3>Key Features</h3>
+        <ul>
+            <li><b>Electrode Modeling:</b> Support for various DBS lead models with directional contacts</li>
+            <li><b>Stimulation Configuration:</b> Visual interface for setting stimulation parameters</li>
+            <li><b>Clinical Assessment:</b> Standardized clinical scales (UPDRS, Y-BOCS, HAM-D, etc.)</li>
+            <li><b>Session Management:</b> Track patient sessions over time with detailed annotations</li>
+            <li><b>Export Capabilities:</b> Generate clinical reports in multiple formats</li>
+        </ul>
+        
+        <h3>Getting Started</h3>
+        <ol>
+            <li>Select your workflow mode (Full or Annotations Only)</li>
+            <li>Choose the electrode model being used</li>
+            <li>Configure stimulation parameters using the interactive electrode viewer</li>
+            <li>Complete clinical assessments as needed</li>
+            <li>Add session annotations and notes</li>
+            <li>Export your session data for documentation</li>
+        </ol>
+        
+        <h3>Support & Contact</h3>
+        <p><b>GitHub Repository:</b> <a href='https://github.com/your-username/clinical-dbs-annotator'>https://github.com/your-username/clinical-dbs-annotator</a></p>
+        <p>For bug reports, feature requests, or general support, please visit our GitHub repository 
+        or contact Lucia Poma directly at</b> <a href='mailto:lpoma@mgh.harvard.edu'>lpoma@mgh.harvard.edu</a></p>.
+        
+        <h3>License</h3>
+        <p>This software is released under an open-source license. Please see the GitHub repository 
+        for detailed licensing information.</p>
+        """)
+        
+        layout.addWidget(desc_text)
+        
+        # Close button
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.setMinimumWidth(100)
+        close_btn.clicked.connect(dialog.accept)
+        button_layout.addWidget(close_btn)
+        layout.addLayout(button_layout)
+        
+        dialog.exec_()
 
     def _toggle_theme(self) -> None:
         """Toggle between dark and light themes."""
@@ -194,14 +299,135 @@ class WizardWindow(QWidget):
     def _select_full_mode(self) -> None:
         """Handle selection of full workflow mode."""
         self.workflow_mode = "full"
-        self.controller.workflow_mode = "full"
-        self._go_to_step1()
+        self.current_step = 1
+        self._load_full_workflow_views()
+        self.stack.setCurrentWidget(self.step1_view)
+        self._update_window_size_for_main_workflow()  # Resize to normal size
+        self._update_ui_state()
 
     def _select_annotations_only_mode(self) -> None:
-        """Handle selection of annotations-only mode."""
+        """Handle selection of annotations-only workflow mode."""
         self.workflow_mode = "annotations_only"
-        self.controller.workflow_mode = "annotations_only"
-        self._go_to_annotations_file()
+        self.current_step = 1
+        self._load_annotations_only_views()
+        self.stack.setCurrentWidget(self.annotations_file_view)
+        self._update_window_size_for_main_workflow()  # Resize to normal size
+        self._update_ui_state()
+
+    def _load_full_workflow_views(self) -> None:
+        """Load full workflow views (lazy loading)."""
+        if self.step1_view is None:
+            from .step1_view import Step1View
+            self.step1_view = Step1View(self.logo_pixmap, self.style())
+            self.stack.addWidget(self.step1_view)
+            self._connect_step1_signals()
+        
+        if self.step2_view is None:
+            from .step2_view import Step2View
+            self.step2_view = Step2View(self.logo_pixmap, self.style())
+            self.stack.addWidget(self.step2_view)
+            self._connect_step2_signals()
+            
+        if self.step3_view is None:
+            from .step3_view import Step3View
+            self.step3_view = Step3View(self.logo_pixmap, self.style())
+            self.stack.addWidget(self.step3_view)
+            self._connect_step3_signals()
+
+    def _load_annotations_only_views(self) -> None:
+        """Load annotations-only workflow views (lazy loading)."""
+        if self.annotations_file_view is None:
+            from .annotations_simple_view import AnnotationsFileView
+            self.annotations_file_view = AnnotationsFileView(self)
+            self.stack.addWidget(self.annotations_file_view)
+            self._connect_annotations_file_signals()
+        
+        if self.annotations_session_view is None:
+            from .annotations_simple_view import AnnotationsSessionView
+            self.annotations_session_view = AnnotationsSessionView(self)
+            self.stack.addWidget(self.annotations_session_view)
+            self._connect_annotations_session_signals()
+
+    def _update_window_size_for_step0(self) -> None:
+        """Set smaller window size for mode selection (step 0)."""
+        # Small compact size for mode selection
+        compact_width = 600
+        compact_height = 250
+        
+        # Center the compact window
+        screen = self.app.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        x = int((screen_geometry.width() - compact_width) / 2)
+        y = int((screen_geometry.height() - compact_height) / 2)
+        
+        self.setGeometry(x, y, compact_width, compact_height)
+        self.setMinimumSize(compact_width, compact_height)
+        self.setMaximumSize(compact_width, compact_height)
+    
+    def _update_window_size_for_main_workflow(self) -> None:
+        """Restore normal window size for main workflow (steps 1+)."""
+        # Get original normal size
+        screen = self.app.primaryScreen()
+        rect = screen.availableGeometry()
+        screen_width = rect.width()
+        screen_height = rect.height()
+
+        # Calculate desired window size with ratio
+        desired_width = int(screen_width * WINDOW_SIZE_RATIO["width"])
+        desired_height = int(screen_height * WINDOW_SIZE_RATIO["height"])
+
+        # Apply minimum size constraints
+        width = max(desired_width, WINDOW_MIN_SIZE["width"])
+        height = max(desired_height, WINDOW_MIN_SIZE["height"])
+
+        # Apply maximum size constraints
+        max_width = int(screen_width * WINDOW_MAX_SIZE_RATIO["width"])
+        max_height = int(screen_height * WINDOW_MAX_SIZE_RATIO["height"])
+        width = min(width, max_width)
+        height = min(height, max_height)
+
+        # Center the normal window
+        x = int((screen_width - width) / 2)
+        y = int((screen_height - height) / 2)
+        
+        # Reset constraints first to avoid min/max conflicts
+        self.setMinimumSize(1, 1)
+        self.setMaximumSize(16777215, 16777215)  # Qt max size
+        
+        # Apply new geometry and constraints
+        self.setGeometry(x, y, width, height)
+        self.setMinimumSize(WINDOW_MIN_SIZE["width"], WINDOW_MIN_SIZE["height"])
+        self.setMaximumSize(16777215, 16777215)
+
+        self._clamp_to_screen()
+
+    def _clamp_to_screen(self) -> None:
+        if getattr(self, "_is_clamping", False):
+            return
+        self._is_clamping = True
+        try:
+            screen = self.app.screenAt(self.frameGeometry().center()) or self.app.primaryScreen()
+            rect = screen.availableGeometry()
+            geo = self.geometry()
+
+            width = min(geo.width(), rect.width())
+            height = min(geo.height(), rect.height())
+
+            x = min(max(geo.x(), rect.x()), rect.x() + rect.width() - width)
+            y = min(max(geo.y(), rect.y()), rect.y() + rect.height() - height)
+
+            if (x, y, width, height) != (geo.x(), geo.y(), geo.width(), geo.height()):
+                self.setGeometry(x, y, width, height)
+        finally:
+            self._is_clamping = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._clamp_to_screen()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self._clamp_to_screen()
 
     def _connect_step1_signals(self) -> None:
         """Connect Step 1 view signals to controller."""
@@ -274,7 +500,47 @@ class WizardWindow(QWidget):
         nav_layout.addWidget(self.back_button)
         nav_layout.addStretch()
 
+        self._nav_right_container = QWidget()
+        self._nav_right_layout = QHBoxLayout(self._nav_right_container)
+        self._nav_right_layout.setContentsMargins(0, 0, 0, 0)
+        self._nav_right_layout.setSpacing(8)
+        nav_layout.addWidget(self._nav_right_container)
+
         return nav_layout
+
+    def _clear_nav_right(self) -> None:
+        if not hasattr(self, "_nav_right_layout"):
+            return
+
+        while self._nav_right_layout.count():
+            item = self._nav_right_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+
+    def _refresh_nav_right(self) -> None:
+        self._clear_nav_right()
+
+        current = self.stack.currentWidget()
+        if current is None:
+            return
+
+        widgets = []
+        if hasattr(current, "next_button"):
+            widgets.append(current.next_button)
+        
+        if hasattr(current, "insert_button"):
+            widgets.append(current.insert_button)
+        
+        if hasattr(current, "close_button"):
+            widgets.append(current.close_button)
+        
+        if hasattr(current, "export_button"):
+            widgets.append(current.export_button)
+
+        for w in widgets:
+            if w is not None:
+                self._nav_right_layout.addWidget(w)
 
     def _go_to_step1(self) -> None:
         """Navigate to Step 1 (full workflow)."""
@@ -386,5 +652,9 @@ class WizardWindow(QWidget):
 
     def _update_ui_state(self) -> None:
         """Update UI elements based on current step."""
-        # Disable back button on step 0 (mode selection)
-        self.back_button.setEnabled(self.current_step > 0)
+        if not hasattr(self, "back_button"):
+            return
+        # Hide back button completely on step 0 (mode selection)
+        self.back_button.setVisible(self.current_step > 0)
+
+        self._refresh_nav_right()

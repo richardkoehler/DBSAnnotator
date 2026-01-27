@@ -39,12 +39,13 @@ class AnnotationsFileView(QWidget):
 
         self.main_layout.addStretch(1)
 
-        # Next button
         self.next_button = QPushButton("Next")
         self.next_button.setIcon(self.parent_style.standardIcon(QStyle.SP_ArrowForward))
         self.next_button.setIconSize(QSize(16, 16))
         self.next_button.setMaximumWidth(120)
-        self.main_layout.addWidget(self.next_button, alignment=Qt.AlignRight)
+        
+        # Add the next button to the layout
+        self.main_layout.addWidget(self.next_button)
 
     def _create_file_group(self) -> QGroupBox:
         """Create the file information group box."""
@@ -87,21 +88,13 @@ class AnnotationsSessionView(QWidget):
         annotation_group = self._create_annotation_group()
         self.main_layout.addWidget(annotation_group)
 
-        # Action buttons
-        buttons_row = QHBoxLayout()
-        buttons_row.addStretch(1)
-
         self.insert_button = QPushButton("Insert Annotation")
         self.insert_button.setObjectName("insert_button")
         self.insert_button.setMinimumWidth(150)
-        buttons_row.addWidget(self.insert_button)
 
         self.close_button = QPushButton("Close Session")
         self.close_button.setObjectName("close_button")
         self.close_button.setMinimumWidth(150)
-        buttons_row.addWidget(self.close_button)
-
-        self.main_layout.addLayout(buttons_row)
 
     def _create_annotation_group(self) -> QGroupBox:
         """Create the annotation input group box."""

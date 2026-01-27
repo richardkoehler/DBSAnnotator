@@ -27,16 +27,32 @@ def build_windows_exe():
     # PyInstaller command
     cmd = [
         "pyinstaller",
-        "--onefile",  # Single file executable
-        "--noconsole",  # No console window
+        # "--onefile",  # Temporarily disabled for debugging
+        "--console",  # Keep console to see the error
         f"--name={APP_NAME}_{VERSION.replace('.', '_')}",
         f"--icon={ICONS_DIR / 'logobml.ico'}",
         # Add data files
         f"--add-data={ICONS_DIR / 'logobml.ico'};icons",
         f"--add-data={ICONS_DIR / 'logobml.png'};icons",
-        f"--add-data={PROJECT_ROOT / 'style.qss'};.",
+        f"--add-data={PROJECT_ROOT / 'styles' / 'dark_theme.qss'};styles",
+        f"--add-data={PROJECT_ROOT / 'styles' / 'light_theme.qss'};styles",
         # Collect all PyQt5 plugins
         "--collect-all=PyQt5",
+        # Add hidden imports to resolve relative import issues
+        "--hidden-import=clinical_dbs_annotator.views",
+        "--hidden-import=clinical_dbs_annotator.models", 
+        "--hidden-import=clinical_dbs_annotator.controllers",
+        "--hidden-import=clinical_dbs_annotator.utils",
+        "--hidden-import=clinical_dbs_annotator.ui",
+        "--hidden-import=clinical_dbs_annotator.config",
+        "--hidden-import=clinical_dbs_annotator.config_electrode_models",
+        "--hidden-import=clinical_dbs_annotator.utils.theme_manager",
+        "--hidden-import=clinical_dbs_annotator.utils.resources",
+        # Add common missing dependencies
+        "--hidden-import=pandas",
+        "--hidden-import=pytz",
+        "--hidden-import=openpyxl",
+        "--hidden-import=xlrd",
         # Entry point
         f"{SRC_DIR / 'clinical_dbs_annotator' / '__main__.py'}",
     ]
@@ -45,7 +61,8 @@ def build_windows_exe():
     try:
         subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
         print(f"\n✓ Build successful!")
-        print(f"  Executable location: {DIST_DIR / f'{APP_NAME}_{VERSION.replace('.', '_')}.exe'}")
+        exe_name = f"{APP_NAME}_{VERSION.replace('.', '_')}.exe"
+        print(f"  Executable location: {DIST_DIR / exe_name}")
     except subprocess.CalledProcessError as e:
         print(f"\n✗ Build failed: {e}")
         return False
