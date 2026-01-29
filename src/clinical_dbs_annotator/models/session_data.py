@@ -151,6 +151,7 @@ class SessionData:
         scales: List[ClinicalScale],
         stimulation: StimulationParameters,
         group: str = "",
+        electrode_model: str = "",
         notes: str = "",
     ) -> None:
         """
@@ -179,8 +180,10 @@ class SessionData:
                 "block_id": self.block_id,
                 "group_ID": group,
                 "session_ID": self.session_id,
+                "is_initial": 1,  # Clinical scales are from view1, so is_initial = 1
                 "scale_name": None,
                 "scale_value": None,
+                "electrode_model": electrode_model,
                 "notes": notes,
                 **stim_dict,
             }
@@ -194,8 +197,10 @@ class SessionData:
                     "block_id": self.block_id,
                     "group_ID": group,
                     "session_ID": self.session_id,
+                    "is_initial": 1,  # Clinical scales are from view1, so is_initial = 1
                     "scale_name": scale.name,
                     "scale_value": scale.value,
+                    "electrode_model": electrode_model,
                     "notes": notes,
                     **stim_dict,
                 }
@@ -209,6 +214,7 @@ class SessionData:
         scales: List[SessionScale],
         stimulation: StimulationParameters,
         group: str = "",
+        electrode_model: str = "",
         notes: str = "",
     ) -> None:
         """
@@ -238,8 +244,10 @@ class SessionData:
                 "block_id": self.block_id,
                 "group_ID": group,
                 "session_ID": self.session_id,
+                "is_initial": 0,  # Session scales are from view3, so is_initial = 0
                 "scale_name": None,
                 "scale_value": None,
+                "electrode_model": electrode_model,
                 "notes": notes,
                 **stim_dict,
             }
@@ -253,6 +261,7 @@ class SessionData:
                     "block_id": self.block_id,
                     "group_ID": group,
                     "session_ID": self.session_id,
+                    "is_initial": 0,  # Session scales are from view3, so is_initial = 0
                     "scale_name": scale.name,
                     "scale_value": scale.current_value,
                     "notes": notes,
@@ -335,6 +344,7 @@ class SessionData:
             "time": time_str,
             "group_ID": "",  # Empty for simple annotations
             "session_ID": self.session_id,
+            "is_initial": 0,  # Simple annotations are like session entries, so is_initial = 0
             "annotation": annotation,
         }
         self.tsv_writer.writerow(row)

@@ -15,7 +15,7 @@ QWidget {
     background-color: #f8fafc;
     color: #0f172a;
     font-family: 'Segoe UI', 'San Francisco', 'Helvetica Neue', 'Arial', sans-serif;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 QMainWindow, QDialog {
@@ -38,7 +38,7 @@ QLineEdit, QTextEdit, QPlainTextEdit {
     padding: 3px 6px;
     selection-background-color: #b45309;
     selection-color: white;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 QLineEdit:hover, QTextEdit:hover, QPlainTextEdit:hover {
@@ -65,7 +65,7 @@ QComboBox {
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     padding: 6px 10px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
 }
 
@@ -93,7 +93,7 @@ QComboBox QAbstractItemView {
     selection-background-color: #b45309;
     selection-color: white;
     padding: 4px;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 QComboBox QAbstractItemView::item {
@@ -118,7 +118,7 @@ MultiSelectComboBox {
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     padding: 6px 10px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
 }
 
@@ -154,7 +154,7 @@ MultiSelectComboBox QAbstractItemView {
     selection-background-color: #b45309;
     selection-color: white;
     padding: 4px;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 MultiSelectComboBox QAbstractItemView::item {
@@ -178,8 +178,9 @@ QPushButton {
     color: #0f172a;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: 8px 16px;
+    font-size: 13px;
+    min-height: 20px;
     font-weight: 600;
 }
 
@@ -230,8 +231,8 @@ QPushButton[objectName^="preset_"], QPushButton[objectName^="preset2_"] {
     min-width: 40px;
     max-width: 60px;
     padding: 6px 12px;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 QPushButton#preset_OCD:hover, QPushButton#preset_MDD:hover, QPushButton#preset_PD:hover, QPushButton#preset_ET:hover,
@@ -350,9 +351,9 @@ QPushButton#theme_toggle {
     border: 1px solid #cbd5e1;
     border-radius: 16px;
     min-width: 32px;
-    max-width: 32px;
+    max-width: 50px;
     min-height: 32px;
-    max-height: 32px;
+    max-height: 50px;
     padding: 0;
     font-size: 14px;
 }
@@ -392,7 +393,7 @@ QProgressBar {
     border-radius: 8px;
     text-align: center;
     font-weight: bold;
-    font-size: 11px;
+    font-size: 12px;
     background-color: #f8fafc;
     color: #0f172a;
 }
@@ -407,4 +408,60 @@ QProgressBar::chunk {
 QProgressBar:hover {
     border: 2px solid #059669;
     background-color: #f1f5f9;
+}
+
+QProgressBar:focus {
+    border: 2px solid #059669;
+    outline: none;
+}
+
+/* Validation Success Messages */
+QLabel[class="validation-success"] {
+    color: #059669 !important;
+    font-weight: bold;
+}
+
+/* Scrollbar */
+QScrollBar:vertical {
+    border: none;
+    background: transparent;
+    width: 12px;
+    margin: 0px;
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: transparent;
+    height: 12px;
+    margin: 0px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    height: 0px;
+    width: 0px;
+    background: none;
+}
+
+QScrollBar::handle:vertical {
+    background: #cbd5e1;
+    min-height: 20px;
+    border-radius: 6px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #cbd5e1;
+    min-width: 20px;
+    border-radius: 6px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
+    background: #94a3b8;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+    background: none;
 }

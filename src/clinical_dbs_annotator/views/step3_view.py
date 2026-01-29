@@ -6,13 +6,24 @@ session data including stimulation parameters and scale values.
 """
 
 from typing import List, Tuple
+
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QDoubleValidator, QFont, QIntValidator, QPixmap
 from PyQt5.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox, QLabel, 
-    QLineEdit, QTextEdit, QPushButton, QProgressBar, QSizePolicy,
-    QWidget, QMenu, QComboBox, QStyle
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QComboBox,
+    QPushButton,
+    QSizePolicy,
+    QStyle,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+    QMenu,
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QEvent
-from PyQt5.QtGui import QFont, QDoubleValidator, QIntValidator, QPixmap, QMouseEvent, QIcon
 
 from ..config import (
     PLACEHOLDERS,
@@ -23,160 +34,6 @@ from ..ui import IncrementWidget, create_horizontal_line
 from .base_view import BaseStepView
 from ..models import ElectrodeCanvas
 from ..config_electrode_models import ContactState, StimulationRule
-
-
-class InteractiveProgressBar(QWidget):
-    """Custom progress bar widget with navigation arrows and drag support."""
-    
-    valueChanged = pyqtSignal(int)
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._is_dragging = False
-        self._minimum = 0
-        self._maximum = 40
-        self._value = 0
-        self._setup_ui()
-        
-    def _setup_ui(self):
-        """Setup the UI with arrows and progress bar."""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
-        
-        # Left arrows - horizontal layout
-        left_layout = QHBoxLayout()
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(2)
-        
-        # Single left arrow (-0.25) - closer to bar
-        self.left_single_btn = QPushButton()
-        self.left_single_btn.setText("◀")
-        self.left_single_btn.setFixedSize(18, 18)
-        self.left_single_btn.setToolTip("-0.25")
-        self.left_single_btn.clicked.connect(lambda: self._adjust_value(-1))
-        
-        # Double left arrow (-0.5) - farther from bar
-        self.left_double_btn = QPushButton()
-        self.left_double_btn.setText("◀◀")
-        self.left_double_btn.setFixedSize(24, 18)
-        self.left_double_btn.setToolTip("-0.5")
-        self.left_double_btn.clicked.connect(lambda: self._adjust_value(-2))
-        
-        left_layout.addWidget(self.left_single_btn)
-        left_layout.addWidget(self.left_double_btn)
-        
-        # Progress bar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimum(self._minimum)
-        self.progress_bar.setMaximum(self._maximum)
-        self.progress_bar.setValue(self._value)
-        self.progress_bar.setFormat("0.00")
-        self.progress_bar.setCursor(Qt.PointingHandCursor)
-        self.progress_bar.valueChanged.connect(self._on_bar_value_changed)
-        
-        # Right side controls - horizontal layout
-        right_layout = QHBoxLayout()
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(2)
-        
-        # Single right arrow (+0.25) - closer to bar
-        self.right_single_btn = QPushButton()
-        self.right_single_btn.setText("▶")
-        self.right_single_btn.setFixedSize(18, 18)
-        self.right_single_btn.setToolTip("+0.25")
-        self.right_single_btn.clicked.connect(lambda: self._adjust_value(1))
-        
-        # Double right arrow (+0.5) - farther from bar
-        self.right_double_btn = QPushButton()
-        self.right_double_btn.setText("▶▶")
-        self.right_double_btn.setFixedSize(24, 18)
-        self.right_double_btn.setToolTip("+0.5")
-        self.right_double_btn.clicked.connect(lambda: self._adjust_value(2))
-        
-        # Reset button (X) - clears the scale value
-        self.reset_btn = QPushButton()
-        self.reset_btn.setText("✕")
-        self.reset_btn.setFixedSize(18, 18)
-        self.reset_btn.setToolTip("Reset to 0")
-        self.reset_btn.clicked.connect(lambda: self.setValue(0))
-        
-        right_layout.addWidget(self.right_single_btn)
-        right_layout.addWidget(self.right_double_btn)
-        right_layout.addWidget(self.reset_btn)
-        
-        # Add all to main layout
-        layout.addLayout(left_layout)
-        layout.addWidget(self.progress_bar)
-        layout.addLayout(right_layout)
-        
-        # Install mouse event filter on progress bar
-        self.progress_bar.installEventFilter(self)
-        
-    def eventFilter(self, obj, event):
-        """Handle mouse events on progress bar."""
-        if obj == self.progress_bar:
-            if event.type() == QEvent.MouseButtonPress:
-                self._is_dragging = True
-                self._update_value_from_position(event.pos().x())
-                return True
-            elif event.type() == QEvent.MouseMove:
-                if self._is_dragging:
-                    self._update_value_from_position(event.pos().x())
-                    return True
-            elif event.type() == QEvent.MouseButtonRelease:
-                self._is_dragging = False
-                return True
-        return super().eventFilter(obj, event)
-        
-    def _adjust_value(self, delta):
-        """Adjust value by delta (1 = 0.25, 2 = 0.5)."""
-        new_value = max(self._minimum, min(self._maximum, self._value + delta))
-        self.setValue(new_value)
-        
-    def _update_value_from_position(self, x_position):
-        """Update progress bar value based on mouse position."""
-        rect = self.progress_bar.rect()
-        if rect.width() > 0:
-            relative_x = max(0, min(x_position, rect.width()))
-            value = int((relative_x / rect.width()) * self._maximum)
-            self.setValue(value)
-            
-    def _on_bar_value_changed(self, value):
-        """Handle progress bar value change."""
-        self._value = value
-        self.valueChanged.emit(value)
-        # Update format to show current value
-        actual_value = value / 4.0  # Convert from internal value to actual value
-        self.progress_bar.setFormat(f"{actual_value:.2f}")
-        
-    # Progress bar interface methods
-    def setMinimum(self, value):
-        self._minimum = value
-        self.progress_bar.setMinimum(value)
-        
-    def setMaximum(self, value):
-        self._maximum = value
-        self.progress_bar.setMaximum(value)
-        
-    def setValue(self, value):
-        self._value = value
-        self.progress_bar.setValue(value)
-        
-    def setFormat(self, format_str):
-        self.progress_bar.setFormat(format_str)
-        
-    def setFixedWidth(self, width):
-        # Reserve space for controls: left (18+24+4+4=50) + right (18+24+18+6+4=70) = 120px total
-        bar_width = width - 120  # Space for all controls
-        self.progress_bar.setFixedWidth(bar_width)
-        super().setFixedWidth(width)
-        
-    def setToolTip(self, tooltip):
-        self.progress_bar.setToolTip(tooltip)
-        
-    def value(self):
-        return self._value
 
 
 class Step3View(BaseStepView):
@@ -190,26 +47,22 @@ class Step3View(BaseStepView):
     - Data insertion and session closing
     """
 
-    def __init__(self, logo_pixmap: QPixmap, parent_style):
+    def __init__(self, parent_style):
         """
         Initialize Step 3 view.
 
         Args:
-            logo_pixmap: Application logo
             parent_style: Parent widget style for icon access
         """
-        super().__init__(logo_pixmap)
+        super().__init__()
         self.parent_style = parent_style
         self.session_scale_value_edits: List[Tuple[str, QLineEdit]] = []
-        self.session_scale_progress_bars: List[Tuple[str, QProgressBar]] = []
         self.step3_session_scales_form: QFormLayout = None
 
         self.left_canvas = ElectrodeCanvas()
         self.right_canvas = ElectrodeCanvas()
         self.left_canvas.validation_callback = self._on_left_canvas_validation
         self.right_canvas.validation_callback = self._on_right_canvas_validation
-        self._left_selection_valid = True
-        self._right_selection_valid = True
 
         self._current_model = None
         self._setup_ui()
@@ -219,20 +72,36 @@ class Step3View(BaseStepView):
         self.main_layout.setSpacing(8)
         self.main_layout.setContentsMargins(12, 8, 12, 8)
 
-        # Header
-        header = self.create_header(
-            "Active Session Recording"
-        )
-        self.main_layout.addWidget(header)
-
         # Main content area
         content_layout = QHBoxLayout()
 
+        # Left side: Stimulation params
         left_layout = QVBoxLayout()
-        settings_group = self._create_stimulation_params_group()
-        left_layout.addWidget(settings_group)
-        #left_layout.addStretch(1)
+        params_group = self._create_stimulation_params_group()
+        left_layout.addWidget(params_group)
+        left_layout.addStretch(1)
         content_layout.addLayout(left_layout)
+
+        # Center: Electrodes
+        electrodes_layout = QVBoxLayout()
+        electrodes_row = QHBoxLayout()
+
+        left_canvas_group = QGroupBox("Left electrode")
+        left_canvas_layout = QVBoxLayout()
+        left_canvas_layout.addWidget(self.left_canvas, 1)
+        left_canvas_group.setLayout(left_canvas_layout)
+
+        right_canvas_group = QGroupBox("Right electrode")
+        right_canvas_layout = QVBoxLayout()
+        right_canvas_layout.addWidget(self.right_canvas, 1)
+        right_canvas_group.setLayout(right_canvas_layout)
+
+        electrodes_row.addWidget(left_canvas_group, 1)
+        electrodes_row.addWidget(right_canvas_group, 1)
+
+        electrodes_layout.addLayout(electrodes_row)
+        electrodes_layout.addLayout(self._create_electrode_legend_layout())
+        content_layout.addLayout(electrodes_layout, 1)
 
         # Right side: Scales and notes
         right_layout = QVBoxLayout()
@@ -244,7 +113,7 @@ class Step3View(BaseStepView):
         content_layout.addLayout(right_layout)
 
         self.main_layout.addLayout(content_layout)
-        #self.main_layout.addStretch(1)
+        self.main_layout.addStretch(1)
 
         self.insert_button = QPushButton("Insert")
         self.insert_button.setIcon(
@@ -283,35 +152,32 @@ class Step3View(BaseStepView):
         self.export_button.setMenu(self.export_menu)
 
     def _create_stimulation_params_group(self) -> QWidget:
-        gb_init = QGroupBox("Stimulation settings")
-        gb_init.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        gb_init.setFont(QFont("Segoe UI", 12, QFont.Bold))
-        gb_init.setStyleSheet(
-            "QGroupBox { margin-top: 8pt; } "
-            "QGroupBox::title { color: #ff8800; margin-left: 4pt; "
-            "font-size: 16pt; font-weight: 600; }"
-        )
+        """Create the stimulation parameters container."""
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignRight)
+        form.setFormAlignment(Qt.AlignTop)
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(10)
 
-        container_layout = QHBoxLayout()
-
-        sidebar_layout = QVBoxLayout()
-
-        group_row = QGroupBox("Group")
-        group_row_layout = QHBoxLayout()
+        # Group selector
         self.group_combo = QComboBox()
-        self.group_combo.addItems(["A", "B", "C", "D", "None"])
-        group_row_layout.addWidget(self.group_combo)
-        group_row.setLayout(group_row_layout)
+        self.group_combo.addItems(["A", "B", "C", "D"])
+        self.group_combo.setCurrentIndex(0)
+        form.addRow(QLabel("Group:"), self.group_combo)
 
         freq_limits = STIMULATION_LIMITS["frequency"]
         amp_limits = STIMULATION_LIMITS["amplitude"]
         pw_limits = STIMULATION_LIMITS["pulse_width"]
 
-        left_group = QGroupBox("Left")
-        left_group_layout = QVBoxLayout()
-        left_form = QFormLayout()
-        left_form.setLabelAlignment(Qt.AlignRight)
+        # Left electrode section
+        form.addRow(QLabel(""), QLabel(""))  # Empty row for spacing
+        left_electrode_label = QLabel("Left electrode")
+        left_electrode_label.setStyleSheet("font-weight: bold; font-size: 12pt;")
+        form.addRow(left_electrode_label, QLabel(""))
 
+        # Left stimulation frequency
         self.session_left_stim_freq_edit = QLineEdit()
         self.session_left_stim_freq_edit.setPlaceholderText(PLACEHOLDERS["frequency"])
         self.session_left_stim_freq_edit.setFixedWidth(100)
@@ -325,14 +191,14 @@ class Step3View(BaseStepView):
             min_value=freq_limits["min"],
             max_value=freq_limits["max"],
         )
-        left_form.addRow(QLabel("Stimulation frequency:"), left_freq_widget)
+        form.addRow(QLabel("Stimulation frequency:"), left_freq_widget)
 
         self.left_config_text = QTextEdit()
         self.left_config_text.setReadOnly(True)
-        self.left_config_text.setMinimumHeight(60)
-        self.left_config_text.setMaximumHeight(90)
-        self.left_config_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.left_config_text.setMaximumHeight(120)
+        form.addRow(self.left_config_text)
 
+        # Left amplitude
         self.session_left_amp_edit = QLineEdit()
         self.session_left_amp_edit.setPlaceholderText(PLACEHOLDERS["amplitude"])
         self.session_left_amp_edit.setFixedWidth(100)
@@ -347,8 +213,9 @@ class Step3View(BaseStepView):
             min_value=amp_limits["min"],
             max_value=amp_limits["max"],
         )
-        left_form.addRow(QLabel("Amplitude:"), left_amp_widget)
+        form.addRow(QLabel("Amplitude:"), left_amp_widget)
 
+        # Left pulse width
         self.session_left_pw_edit = QLineEdit()
         self.session_left_pw_edit.setPlaceholderText(PLACEHOLDERS["pulse_width"])
         self.session_left_pw_edit.setFixedWidth(100)
@@ -362,17 +229,16 @@ class Step3View(BaseStepView):
             min_value=pw_limits["min"],
             max_value=pw_limits["max"],
         )
-        left_form.addRow(QLabel("Pulse width:"), left_pw_widget)
+        form.addRow(QLabel("Pulse width:"), left_pw_widget)
+        form.addWidget(create_horizontal_line())
 
-        left_group_layout.addLayout(left_form)
-        left_group_layout.addWidget(self.left_config_text)
-        left_group.setLayout(left_group_layout)
+        # Right electrode section
+        form.addRow(QLabel(""), QLabel(""))  # Empty row for spacing
+        right_electrode_label = QLabel("Right electrode")
+        right_electrode_label.setStyleSheet("font-weight: bold; font-size: 12pt;")
+        form.addRow(right_electrode_label, QLabel(""))
 
-        right_group = QGroupBox("Right")
-        right_group_layout = QVBoxLayout()
-        right_form = QFormLayout()
-        right_form.setLabelAlignment(Qt.AlignRight)
-
+        # Right stimulation frequency
         self.session_right_stim_freq_edit = QLineEdit()
         self.session_right_stim_freq_edit.setPlaceholderText(PLACEHOLDERS["frequency"])
         self.session_right_stim_freq_edit.setFixedWidth(100)
@@ -386,14 +252,14 @@ class Step3View(BaseStepView):
             min_value=freq_limits["min"],
             max_value=freq_limits["max"],
         )
-        right_form.addRow(QLabel("Stimulation frequency:"), right_freq_widget)
+        form.addRow(QLabel("Stimulation frequency:"), right_freq_widget)
 
         self.right_config_text = QTextEdit()
         self.right_config_text.setReadOnly(True)
-        self.right_config_text.setMinimumHeight(60)
-        self.right_config_text.setMaximumHeight(90)
-        self.right_config_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.right_config_text.setMaximumHeight(120)
+        form.addRow(self.right_config_text)
 
+        # Right amplitude
         self.session_right_amp_edit = QLineEdit()
         self.session_right_amp_edit.setPlaceholderText(PLACEHOLDERS["amplitude"])
         self.session_right_amp_edit.setFixedWidth(100)
@@ -408,8 +274,9 @@ class Step3View(BaseStepView):
             min_value=amp_limits["min"],
             max_value=amp_limits["max"],
         )
-        right_form.addRow(QLabel("Amplitude:"), right_amp_widget)
+        form.addRow(QLabel("Amplitude:"), right_amp_widget)
 
+        # Right pulse width
         self.session_right_pw_edit = QLineEdit()
         self.session_right_pw_edit.setPlaceholderText(PLACEHOLDERS["pulse_width"])
         self.session_right_pw_edit.setFixedWidth(100)
@@ -423,43 +290,10 @@ class Step3View(BaseStepView):
             min_value=pw_limits["min"],
             max_value=pw_limits["max"],
         )
-        right_form.addRow(QLabel("Pulse width:"), right_pw_widget)
+        form.addRow(QLabel("Pulse width:"), right_pw_widget)
 
-        right_group_layout.addLayout(right_form)
-        right_group_layout.addWidget(self.right_config_text)
-        right_group.setLayout(right_group_layout)
-
-        sidebar_layout.addWidget(group_row)
-        sidebar_layout.addWidget(left_group)
-        sidebar_layout.addWidget(right_group)
-        sidebar_layout.addStretch(1)
-
-        electrodes_layout = QVBoxLayout()
-        electrodes_row = QHBoxLayout()
-
-        left_canvas_group = QGroupBox("Left electrode")
-        left_canvas_layout = QVBoxLayout()
-        left_canvas_layout.addWidget(self.left_canvas, 1)
-        left_canvas_group.setLayout(left_canvas_layout)
-
-        right_canvas_group = QGroupBox("Right electrode")
-        right_canvas_layout = QVBoxLayout()
-        right_canvas_layout.addWidget(self.right_canvas, 1)
-        right_canvas_group.setLayout(right_canvas_layout)
-
-        electrodes_row.addWidget(left_canvas_group, 1)
-        electrodes_row.addWidget(right_canvas_group, 1)
-
-        electrodes_layout.addLayout(electrodes_row)
-        electrodes_layout.addLayout(self._create_electrode_legend_layout())
-
-        container_layout.addLayout(sidebar_layout, 0)
-        container_layout.addLayout(electrodes_layout, 1)
-
-        layout = QVBoxLayout(gb_init)
-        layout.addLayout(container_layout)
-
-        return gb_init
+        container_layout.addLayout(form)
+        return container
 
     def _create_electrode_legend_layout(self) -> QHBoxLayout:
         layout = QHBoxLayout()
@@ -487,11 +321,9 @@ class Step3View(BaseStepView):
         return layout
 
     def _on_left_canvas_validation(self, is_valid: bool, error_msg: str) -> None:
-        self._left_selection_valid = is_valid
         self.update_configuration_display()
 
     def _on_right_canvas_validation(self, is_valid: bool, error_msg: str) -> None:
-        self._right_selection_valid = is_valid
         self.update_configuration_display()
 
     def set_electrode_model(self, model) -> None:
@@ -503,27 +335,8 @@ class Step3View(BaseStepView):
     def update_configuration_display(self) -> None:
         if not hasattr(self, "left_config_text") or not hasattr(self, "right_config_text"):
             return
-        # Keep text edits empty by default
-        self.left_config_text.setPlainText("")
-        self.right_config_text.setPlainText("")
-        self._apply_config_validation_styles()
-
-    def _apply_config_validation_styles(self) -> None:
-        if hasattr(self, "left_config_text"):
-            if not self._left_selection_valid:
-                self.left_config_text.setStyleSheet("border: 2px solid #cc0000; color: #cc0000;")
-                self.left_config_text.setPlainText("Invalid configuration: violates selection rules")
-            else:
-                self.left_config_text.setStyleSheet("")
-                self.left_config_text.setPlainText("")
-                
-        if hasattr(self, "right_config_text"):
-            if not self._right_selection_valid:
-                self.right_config_text.setStyleSheet("border: 2px solid #cc0000; color: #cc0000;")
-                self.right_config_text.setPlainText("Invalid configuration: violates selection rules")
-            else:
-                self.right_config_text.setStyleSheet("")
-                self.right_config_text.setPlainText("")
+        self.left_config_text.setHtml(self._format_configuration_html(self.left_canvas))
+        self.right_config_text.setHtml(self._format_configuration_html(self.right_canvas))
 
     def _format_configuration_html(self, canvas: ElectrodeCanvas) -> str:
         model = canvas.model
@@ -586,25 +399,25 @@ class Step3View(BaseStepView):
             for contact_idx in range(model.num_contacts):
                 seg_states = [canvas.contact_states.get((contact_idx, seg), ContactState.OFF) for seg in range(3)]
                 if all(s == ContactState.ANODIC for s in seg_states):
-                    anode_items.append(f"E{contact_idx}")
+                    anode_items.append(f"{contact_idx} ring")
                     continue
                 if all(s == ContactState.CATHODIC for s in seg_states):
-                    cathode_items.append(f"E{contact_idx}")
+                    cathode_items.append(f"{contact_idx} ring")
                     continue
 
                 seg_labels = ["a", "b", "c"]
                 for seg, seg_state in enumerate(seg_states):
                     if seg_state == ContactState.ANODIC:
-                        anode_items.append(f"E{contact_idx}{seg_labels[seg]}")
+                        anode_items.append(f"{contact_idx}{seg_labels[seg]}")
                     elif seg_state == ContactState.CATHODIC:
-                        cathode_items.append(f"E{contact_idx}{seg_labels[seg]}")
+                        cathode_items.append(f"{contact_idx}{seg_labels[seg]}")
         else:
             for contact_idx in range(model.num_contacts):
                 state = canvas.contact_states.get((contact_idx, 0), ContactState.OFF)
                 if state == ContactState.ANODIC:
-                    anode_items.append(f"E{contact_idx}")
+                    anode_items.append(f"{contact_idx} ring")
                 elif state == ContactState.CATHODIC:
-                    cathode_items.append(f"E{contact_idx}")
+                    cathode_items.append(f"{contact_idx} ring")
 
         return "_".join(anode_items), "_".join(cathode_items)
 
@@ -627,7 +440,7 @@ class Step3View(BaseStepView):
     def _create_notes_group(self) -> QGroupBox:
         """Create the session notes group box."""
         gb_notes = QGroupBox("Session notes")
-        gb_notes.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        gb_notes.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
         gb_notes.setStyleSheet(
             "QGroupBox::title { color: #ff8800; font-size: 11pt; font-weight: 600; }"
         )
@@ -635,74 +448,43 @@ class Step3View(BaseStepView):
 
         layout = QHBoxLayout(gb_notes)
         self.session_notes_edit = QTextEdit()
-        self.session_notes_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.session_notes_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         self.session_notes_edit.setMinimumHeight(40)
         layout.addWidget(self.session_notes_edit)
 
         return gb_notes
 
-    def update_session_scales(self, scale_data: List[Tuple[str, str, str]]) -> None:
+    def update_session_scales(self, scale_names: List[str]) -> None:
         """
-        Update the session scales form with the given scale data.
+        Update the session scales form with the given scale names.
 
         Args:
-            scale_data: List of (name, min, max) tuples for each scale
+            scale_names: List of scale names to display
         """
         # Clear existing form
         while self.step3_session_scales_form.rowCount():
             self.step3_session_scales_form.removeRow(0)
 
         self.session_scale_value_edits = []
-        self.session_scale_progress_bars = []
 
-        # Add scale inputs with progress bars
-        for name, min_val, max_val in scale_data:
-            # Convert min/max to internal values (multiply by 4 for 0.25 precision)
-            try:
-                min_internal = float(min_val) * 4
-                max_internal = float(max_val) * 4
-            except (ValueError, TypeError):
-                # Fallback to default values
-                min_internal = 0
-                max_internal = 40  # 10 * 4
-            
-            # Create interactive progress bar with dynamic range
-            progress_bar = InteractiveProgressBar()
-            progress_bar.setMinimum(int(min_internal))
-            progress_bar.setMaximum(int(max_internal))
-            progress_bar.setValue(int(min_internal))  # Start at minimum
-            progress_bar.setFixedWidth(300)  # Increased width for better interaction
-            progress_bar.setFormat(f"{float(min_val):.2f}")  # Initial format with min value
-            
-            # Set tooltip
-            progress_bar.setToolTip(f"Click or drag to adjust {name} value")
-            
-            # Create hidden edit to store value
+        # Add scale inputs
+        limits = SESSION_SCALE_LIMITS
+        for name in scale_names:
             value_edit = QLineEdit()
             value_edit.setPlaceholderText(PLACEHOLDERS["scale_value"])
-            value_edit.setFixedWidth(80)
-            value_edit.setValidator(
-                QDoubleValidator(float(min_val), float(max_val), 2)
-            )
-            value_edit.hide()  # Hide the edit field
+            value_edit.setFixedWidth(75)
 
-            # Connect progress bar value change to update the hidden edit
-            progress_bar.valueChanged.connect(
-                lambda value, edit=value_edit, min_val=min_val: edit.setText(str(value / 4.0))
+            widget = IncrementWidget(
+                value_edit,
+                step1=limits["step1"],
+                step2=limits["step2"],
+                decimals=limits["decimals"],
+                min_value=limits["min"],
+                max_value=limits["max"],
             )
-            
-            # Initialize the edit with min value
-            value_edit.setText(min_val)
-            
-            # Create horizontal layout for progress bar
-            widget_layout = QHBoxLayout()
-            widget_layout.addWidget(progress_bar)
-            widget_layout.addWidget(value_edit)
-            widget_layout.setContentsMargins(0, 0, 0, 0)
 
-            self.step3_session_scales_form.addRow(QLabel(name + ":"), widget_layout)
+            self.step3_session_scales_form.addRow(QLabel(name + ":"), widget)
             self.session_scale_value_edits.append((name, value_edit))
-            self.session_scale_progress_bars.append((name, progress_bar))
 
     def set_initial_stimulation_params(
         self,
@@ -776,29 +558,6 @@ class Step3View(BaseStepView):
                     canvas.case_state = state
                     continue
 
-                if token.startswith("E") and len(token) >= 2:
-                    # Handle new E0, E1a format
-                    try:
-                        if token[-1].isalpha():
-                            # Directional contact like E1a
-                            idx = int(token[1:-1])
-                            seg_char = token[-1].lower()
-                            seg_map = {"a": 0, "b": 1, "c": 2}
-                            if seg_char in seg_map:
-                                canvas.contact_states[(idx, seg_map[seg_char])] = state
-                        else:
-                            # Ring contact like E0
-                            idx = int(token[1:])
-                            if model.is_directional:
-                                for seg in range(3):
-                                    canvas.contact_states[(idx, seg)] = state
-                            else:
-                                canvas.contact_states[(idx, 0)] = state
-                    except Exception:
-                        continue
-                    continue
-                
-                # Legacy support for old format
                 if token.endswith(" ring"):
                     idx_str = token.replace(" ring", "")
                     try:
@@ -813,7 +572,7 @@ class Step3View(BaseStepView):
                         canvas.contact_states[(idx, 0)] = state
                     continue
 
-                if model.is_directional and len(token) >= 2 and token[0].isdigit():
+                if model.is_directional and len(token) >= 2:
                     try:
                         idx = int(token[:-1])
                     except Exception:

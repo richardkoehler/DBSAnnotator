@@ -7,13 +7,15 @@ section labels, and horizontal lines.
 
 from typing import Optional
 
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import QSize, Qt, pyqtSignal, QEvent
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QProgressBar,
     QVBoxLayout,
     QWidget,
 )
@@ -211,3 +213,203 @@ class IncrementWidget(QWidget):
     def get_line_edit(self) -> QLineEdit:
         """Get the underlying QLineEdit widget."""
         return self.line_edit
+
+
+class ScaleProgressWidget(QWidget):
+    """Interactive progress widget with arrow controls and drag support.
+
+    Internal values are integers; UI displays value / 4.0 to represent 0.25 steps.
+    """
+
+    valueChanged = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._is_dragging = False
+        self._minimum = 0
+        self._maximum = 40
+        self._value = 0
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        # Left controls
+        left_layout = QHBoxLayout()
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(2)
+
+        self.left_single_btn = self._create_icon_button(self._create_lr_arrow_icon("left", False), 18, 18)
+        self.left_single_btn.setToolTip("-0.25")
+        self.left_single_btn.clicked.connect(lambda: self._adjust_value(-1))
+
+        self.left_double_btn = self._create_icon_button(self._create_lr_arrow_icon("left", True), 24, 18)
+        self.left_double_btn.setToolTip("-0.5")
+        self.left_double_btn.clicked.connect(lambda: self._adjust_value(-2))
+
+        left_layout.addWidget(self.left_single_btn)
+        left_layout.addWidget(self.left_double_btn)
+
+        # Progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimum(self._minimum)
+        self.progress_bar.setMaximum(self._maximum)
+        self.progress_bar.setValue(self._value)
+        self.progress_bar.setFormat("0.00")
+        self.progress_bar.setCursor(Qt.PointingHandCursor)
+        self.progress_bar.valueChanged.connect(self._on_bar_value_changed)
+
+        # Right controls
+        right_layout = QHBoxLayout()
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(2)
+
+        self.right_single_btn = self._create_icon_button(self._create_lr_arrow_icon("right", False), 18, 18)
+        self.right_single_btn.setToolTip("+0.25")
+        self.right_single_btn.clicked.connect(lambda: self._adjust_value(1))
+
+        self.right_double_btn = self._create_icon_button(self._create_lr_arrow_icon("right", True), 24, 18)
+        self.right_double_btn.setToolTip("+0.5")
+        self.right_double_btn.clicked.connect(lambda: self._adjust_value(2))
+
+        self.reset_btn = self._create_icon_button(self._create_x_icon(), 18, 18)
+        self.reset_btn.setToolTip("Reset to 0")
+        self.reset_btn.clicked.connect(lambda: self.setValue(0))
+
+        right_layout.addWidget(self.right_single_btn)
+        right_layout.addWidget(self.right_double_btn)
+        right_layout.addWidget(self.reset_btn)
+
+        layout.addLayout(left_layout)
+        layout.addWidget(self.progress_bar)
+        layout.addLayout(right_layout)
+
+        self.progress_bar.installEventFilter(self)
+
+    def _create_icon_button(self, icon: QIcon, w: int, h: int) -> QPushButton:
+        btn = QPushButton()
+        btn.setFixedSize(w, h)
+        btn.setIcon(icon)
+        btn.setIconSize(QSize(w - 2, h - 2))
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet(
+            """
+            QPushButton {
+                background: transparent;
+                border: none;
+                padding: 0;
+            }
+            QPushButton:hover, QPushButton:pressed {
+                background: transparent;
+            }
+            """
+        )
+        return btn
+
+    def _create_lr_arrow_icon(self, direction: str, double: bool) -> QIcon:
+        arrow_color = "#cccccc"
+        if double:
+            if direction == "left":
+                svg = f"""
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                    <polygon points="12,4 7,9 12,14" fill="{arrow_color}"/>
+                    <polygon points="16,4 11,9 16,14" fill="{arrow_color}"/>
+                </svg>
+                """
+            else:
+                svg = f"""
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                    <polygon points="6,4 11,9 6,14" fill="{arrow_color}"/>
+                    <polygon points="2,4 7,9 2,14" fill="{arrow_color}"/>
+                </svg>
+                """
+        else:
+            if direction == "left":
+                svg = f"""
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                    <polygon points="12,4 7,9 12,14" fill="{arrow_color}"/>
+                </svg>
+                """
+            else:
+                svg = f"""
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                    <polygon points="6,4 11,9 6,14" fill="{arrow_color}"/>
+                </svg>
+                """
+
+        pixmap = QPixmap()
+        pixmap.loadFromData(bytes(svg, encoding="utf-8"), "SVG")
+        return QIcon(pixmap)
+
+    def _create_x_icon(self) -> QIcon:
+        color = "#cccccc"
+        svg = f"""
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="5" y1="5" x2="13" y2="13" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
+            <line x1="13" y1="5" x2="5" y2="13" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        """
+        pixmap = QPixmap()
+        pixmap.loadFromData(bytes(svg, encoding="utf-8"), "SVG")
+        return QIcon(pixmap)
+
+    def eventFilter(self, obj, event):
+        if obj == self.progress_bar:
+            if event.type() == QEvent.MouseButtonPress:
+                self._is_dragging = True
+                self._update_value_from_position(event.pos().x())
+                return True
+            if event.type() == QEvent.MouseMove and self._is_dragging:
+                self._update_value_from_position(event.pos().x())
+                return True
+            if event.type() == QEvent.MouseButtonRelease:
+                self._is_dragging = False
+                return True
+        return super().eventFilter(obj, event)
+
+    def _adjust_value(self, delta: int) -> None:
+        new_value = max(self._minimum, min(self._maximum, self._value + delta))
+        self.setValue(new_value)
+
+    def _update_value_from_position(self, x_position: int) -> None:
+        rect = self.progress_bar.rect()
+        if rect.width() > 0:
+            relative_x = max(0, min(x_position, rect.width()))
+            value = int((relative_x / rect.width()) * self._maximum)
+            self.setValue(value)
+
+    def _on_bar_value_changed(self, value: int) -> None:
+        self._value = value
+        self.valueChanged.emit(value)
+        actual_value = value / 4.0
+        self.progress_bar.setFormat(f"{actual_value:.2f}")
+
+    # Public API (mirrors old InteractiveProgressBar)
+    def setMinimum(self, value: int) -> None:
+        self._minimum = int(value)
+        self.progress_bar.setMinimum(int(value))
+
+    def setMaximum(self, value: int) -> None:
+        self._maximum = int(value)
+        self.progress_bar.setMaximum(int(value))
+
+    def setValue(self, value: int) -> None:
+        self._value = int(value)
+        self.progress_bar.setValue(int(value))
+
+    def setFormat(self, format_str: str) -> None:
+        self.progress_bar.setFormat(format_str)
+
+    def setFixedWidth(self, width: int) -> None:
+        # Same reserve logic as previous implementation
+        bar_width = width - 120
+        self.progress_bar.setFixedWidth(bar_width)
+        super().setFixedWidth(width)
+
+    def setToolTip(self, tooltip: str) -> None:
+        self.progress_bar.setToolTip(tooltip)
+
+    def value(self) -> int:
+        return self._value

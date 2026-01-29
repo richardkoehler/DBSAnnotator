@@ -35,27 +35,25 @@ class Step0View(QWidget):
 
         # Buttons container - only the two option squares
         buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(20)
+     #  buttons_layout.setSpacing(20)
 
         # Full mode button
         self.full_mode_button = QPushButton(
             "Annotations + Stimulation\nSettings + Clinical Scales"
         )
         self.full_mode_button.setObjectName("full_mode_button")
-        self.full_mode_button.setMinimumHeight(120)
-        self.full_mode_button.setMinimumWidth(250)
-        self.full_mode_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.full_mode_button.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.full_mode_button.setFixedHeight(180)
+        self.full_mode_button.setFixedWidth(250)
+        self.full_mode_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.full_mode_button.setCursor(Qt.PointingHandCursor)
         buttons_layout.addWidget(self.full_mode_button)
 
         # Annotations only button
         self.annotations_only_button = QPushButton("Free annotations")
         self.annotations_only_button.setObjectName("annotations_only_button")
-        self.annotations_only_button.setMinimumHeight(120)
-        self.annotations_only_button.setMinimumWidth(250)
-        self.annotations_only_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.annotations_only_button.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.annotations_only_button.setFixedHeight(180)
+        self.annotations_only_button.setFixedWidth(250)
+        self.annotations_only_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.annotations_only_button.setCursor(Qt.PointingHandCursor)
         buttons_layout.addWidget(self.annotations_only_button)
 

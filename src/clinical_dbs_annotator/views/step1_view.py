@@ -11,11 +11,12 @@ import os
 from datetime import datetime
 
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QDoubleValidator, QFont, QIntValidator, QPixmap
+from PyQt5.QtGui import QDoubleValidator, QFont, QIntValidator, QPixmap, QIcon
 from PyQt5.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -68,6 +69,7 @@ class FileDropLineEdit(QLineEdit):
         super().dropEvent(event)
 
 
+
 class Step1View(BaseStepView):
     """
     First step view for initial configuration.
@@ -79,15 +81,14 @@ class Step1View(BaseStepView):
     - Initial notes
     """
 
-    def __init__(self, logo_pixmap: QPixmap, parent_style):
+    def __init__(self, parent_style):
         """
         Initialize Step 1 view.
 
         Args:
-            logo_pixmap: Application logo
             parent_style: Parent widget style for icon access
         """
-        super().__init__(logo_pixmap)
+        super().__init__()
         self.parent_style = parent_style
         self.clinical_scales_rows: List[Tuple[QLineEdit, QLineEdit, QHBoxLayout]] = []
         self.current_file_mode = None  # Track file mode: 'existing', 'new', or None
@@ -105,6 +106,19 @@ class Step1View(BaseStepView):
         
         self._setup_ui()
 
+    def get_header_title(self) -> str:
+        return "Clinical Programming Session Setup"
+
+    def _create_settings_icon(self) -> QIcon:
+        svg = """
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.08-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z" fill="#cccccc"/>
+        </svg>
+        """
+        pixmap = QPixmap()
+        pixmap.loadFromData(bytes(svg, encoding="utf-8"), "SVG")
+        return QIcon(pixmap)
+
     def _on_left_canvas_validation(self, is_valid: bool, error_msg: str) -> None:
         self._left_selection_valid = is_valid
         self.update_configuration_display()
@@ -115,12 +129,6 @@ class Step1View(BaseStepView):
 
     def _setup_ui(self) -> None:
         """Set up the UI layout."""
-        # Header
-        header = self.create_step1_header(
-            "Clinical Programming Session Setup"
-        )
-        self.main_layout.addWidget(header)
-
         # Main content area
         content_layout = QHBoxLayout()
 
@@ -152,13 +160,7 @@ class Step1View(BaseStepView):
     def _create_settings_group(self) -> QGroupBox:
         """Create the initial settings group box."""
         gb_init = QGroupBox("Initial settings")
-        gb_init.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-        gb_init.setFont(QFont("Segoe UI", 12, QFont.Bold))
-        gb_init.setStyleSheet(
-            "QGroupBox { margin-top: 8pt; } "
-            "QGroupBox::title { color: #ff8800; margin-left: 4pt; "
-            "font-size: 16pt; font-weight: 600; }"
-        )
+        gb_init.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         container_layout = QHBoxLayout()
 
@@ -197,67 +199,103 @@ class Step1View(BaseStepView):
         pw_limits = STIMULATION_LIMITS["pulse_width"]
 
         left_group = QGroupBox("Left")
+        left_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         left_group_layout = QVBoxLayout()
-        left_form = QFormLayout()
-        left_form.setLabelAlignment(Qt.AlignRight)
-
+        
+        # Use custom layout instead of FormLayout for better height control
+        freq_row = QHBoxLayout()
+        freq_row.addWidget(QLabel("Frequency:"))
+        freq_row.addStretch()
         self.left_stim_freq_edit = QLineEdit()
         self.left_stim_freq_edit.setMaximumWidth(80)
         self.left_stim_freq_edit.setPlaceholderText(PLACEHOLDERS["frequency"])
         self.left_stim_freq_edit.setValidator(QIntValidator(freq_limits["min"], freq_limits["max"]))
-        left_form.addRow(QLabel("Frequency:"), self.left_stim_freq_edit)
-
+        freq_row.addWidget(self.left_stim_freq_edit)
+        
+        amp_row = QHBoxLayout()
+        amp_row.addWidget(QLabel("Amplitude:"))
+        amp_row.addStretch()
         self.left_amp_edit = QLineEdit()
         self.left_amp_edit.setMaximumWidth(80)
         self.left_amp_edit.setPlaceholderText(PLACEHOLDERS["amplitude"])
         self.left_amp_edit.setValidator(QDoubleValidator(amp_limits["min"], amp_limits["max"], amp_limits["decimals"]))
-        left_form.addRow(QLabel("Amplitude:"), self.left_amp_edit)
-
+        amp_row.addWidget(self.left_amp_edit)
+        
+        pw_row = QHBoxLayout()
+        pw_row.addWidget(QLabel("Pulse width:"))
+        pw_row.addStretch()
         self.left_pw_edit = QLineEdit()
         self.left_pw_edit.setMaximumWidth(80)
         self.left_pw_edit.setPlaceholderText(PLACEHOLDERS["pulse_width"])
         self.left_pw_edit.setValidator(QIntValidator(pw_limits["min"], pw_limits["max"]))
-        left_form.addRow(QLabel("Pulse width:"), self.left_pw_edit)
+        pw_row.addWidget(self.left_pw_edit)
+        
+        left_group_layout.addLayout(freq_row)
+        left_group_layout.addLayout(amp_row)
+        left_group_layout.addLayout(pw_row)
 
-        self.left_config_text = QTextEdit()
-        self.left_config_text.setReadOnly(True)
-        self.left_config_text.setMinimumHeight(60)
-        self.left_config_text.setMaximumHeight(90)
-        self.left_config_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        left_group_layout.addLayout(left_form)
-        left_group_layout.addWidget(self.left_config_text)
+        self.left_config_box = QFrame()
+        self.left_config_box.setStyleSheet("background: transparent; border: none;")
+        self.left_config_box.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.left_config_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        left_config_layout = QVBoxLayout(self.left_config_box)
+        left_config_layout.setContentsMargins(6, 4, 6, 4)
+        self.left_config_label = QLabel()
+        self.left_config_label.setWordWrap(True)
+        self.left_config_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        left_config_layout.addWidget(self.left_config_label)
+        left_group_layout.addWidget(self.left_config_box)
+        left_group_layout.addStretch(1)
         left_group.setLayout(left_group_layout)
 
         right_group = QGroupBox("Right")
+        right_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         right_group_layout = QVBoxLayout()
-        right_form = QFormLayout()
-        right_form.setLabelAlignment(Qt.AlignRight)
-
+        
+        # Use custom layout instead of FormLayout for better height control
+        freq_row = QHBoxLayout()
+        freq_row.addWidget(QLabel("Frequency:"))
+        freq_row.addStretch()
         self.right_stim_freq_edit = QLineEdit()
         self.right_stim_freq_edit.setMaximumWidth(80)
         self.right_stim_freq_edit.setPlaceholderText(PLACEHOLDERS["frequency"])
         self.right_stim_freq_edit.setValidator(QIntValidator(freq_limits["min"], freq_limits["max"]))
-        right_form.addRow(QLabel("Frequency:"), self.right_stim_freq_edit)
-
+        freq_row.addWidget(self.right_stim_freq_edit)
+        
+        amp_row = QHBoxLayout()
+        amp_row.addWidget(QLabel("Amplitude:"))
+        amp_row.addStretch()
         self.right_amp_edit = QLineEdit()
         self.right_amp_edit.setMaximumWidth(80)
         self.right_amp_edit.setPlaceholderText(PLACEHOLDERS["amplitude"])
         self.right_amp_edit.setValidator(QDoubleValidator(amp_limits["min"], amp_limits["max"], amp_limits["decimals"]))
-        right_form.addRow(QLabel("Amplitude:"), self.right_amp_edit)
-
+        amp_row.addWidget(self.right_amp_edit)
+        
+        pw_row = QHBoxLayout()
+        pw_row.addWidget(QLabel("Pulse width:"))
+        pw_row.addStretch()
         self.right_pw_edit = QLineEdit()
         self.right_pw_edit.setMaximumWidth(80)
         self.right_pw_edit.setPlaceholderText(PLACEHOLDERS["pulse_width"])
         self.right_pw_edit.setValidator(QIntValidator(pw_limits["min"], pw_limits["max"]))
-        right_form.addRow(QLabel("Pulse width:"), self.right_pw_edit)
+        pw_row.addWidget(self.right_pw_edit)
+        
+        right_group_layout.addLayout(freq_row)
+        right_group_layout.addLayout(amp_row)
+        right_group_layout.addLayout(pw_row)
 
-        self.right_config_text = QTextEdit()
-        self.right_config_text.setReadOnly(True)
-        self.right_config_text.setMinimumHeight(60)
-        self.right_config_text.setMaximumHeight(90)
-        self.right_config_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        right_group_layout.addLayout(right_form)
-        right_group_layout.addWidget(self.right_config_text)
+        self.right_config_box = QFrame()
+        self.right_config_box.setStyleSheet("background: transparent; border: none;")
+        self.right_config_box.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.right_config_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        right_config_layout = QVBoxLayout(self.right_config_box)
+        right_config_layout.setContentsMargins(6, 4, 6, 4)
+        self.right_config_label = QLabel()
+        self.right_config_label.setWordWrap(True)
+        self.right_config_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        right_config_layout.addWidget(self.right_config_label)
+        right_group_layout.addWidget(self.right_config_box)
+        right_group_layout.addStretch(1)
         right_group.setLayout(right_group_layout)
 
         sidebar_layout.addWidget(model_group)
@@ -302,6 +340,7 @@ class Step1View(BaseStepView):
 
         def legend_item(color: str, text: str, border: str) -> QWidget:
             w = QWidget()
+            w.setStyleSheet("background-color: transparent;")
             row = QHBoxLayout(w)
             row.setContentsMargins(0, 0, 0, 0)
             swatch = QLabel()
@@ -361,31 +400,48 @@ class Step1View(BaseStepView):
         
     def update_configuration_display(self):
         """Update stimulation configuration display"""
-        if not hasattr(self, "left_config_text") or not hasattr(self, "right_config_text"):
+        if not hasattr(self, "left_config_label") or not hasattr(self, "right_config_label"):
             return
 
-        # Keep text edits empty by default
-        self.left_config_text.setPlainText("")
-        self.right_config_text.setPlainText("")
+        self.left_config_label.setText("✓ Configuration valid")
+        self.right_config_label.setText("✓ Configuration valid")
         
         self._apply_config_validation_styles()
 
     def _apply_config_validation_styles(self) -> None:
-        if hasattr(self, "left_config_text"):
+        if hasattr(self, "left_config_box") and hasattr(self, "left_config_label"):
             if not self._left_selection_valid:
-                self.left_config_text.setStyleSheet("border: 2px solid #cc0000; color: #cc0000;")
-                self.left_config_text.setPlainText("Invalid configuration: violates selection rules")
+                self.left_config_box.setStyleSheet("border: 2px solid #cc0000;")
+                self.left_config_label.setStyleSheet("color: #cc0000;")
+                self.left_config_label.setProperty("class", "")
+                self.left_config_label.setText("Invalid configuration: violates selection rules")
             else:
-                self.left_config_text.setStyleSheet("")
-                self.left_config_text.setPlainText("")
+                self.left_config_box.setStyleSheet("")
+                self.left_config_label.setStyleSheet("")
+                self.left_config_label.setProperty("class", "validation-success")
+                self.left_config_label.setText("✓ Configuration valid")
+                # Force complete style refresh
+                self.left_config_label.style().unpolish(self.left_config_label)
+                self.left_config_label.style().polish(self.left_config_label)
+                self.left_config_label.update()
+                self.left_config_label.repaint()
                 
-        if hasattr(self, "right_config_text"):
+        if hasattr(self, "right_config_box") and hasattr(self, "right_config_label"):
             if not self._right_selection_valid:
-                self.right_config_text.setStyleSheet("border: 2px solid #cc0000; color: #cc0000;")
-                self.right_config_text.setPlainText("Invalid configuration: violates selection rules")
+                self.right_config_box.setStyleSheet("border: 2px solid #cc0000;")
+                self.right_config_label.setStyleSheet("color: #cc0000;")
+                self.right_config_label.setProperty("class", "")
+                self.right_config_label.setText("Invalid configuration: violates selection rules")
             else:
-                self.right_config_text.setStyleSheet("")
-                self.right_config_text.setPlainText("")
+                self.right_config_box.setStyleSheet("")
+                self.right_config_label.setStyleSheet("")
+                self.right_config_label.setProperty("class", "validation-success")
+                self.right_config_label.setText("✓ Configuration valid")
+                # Force complete style refresh
+                self.right_config_label.style().unpolish(self.right_config_label)
+                self.right_config_label.style().polish(self.right_config_label)
+                self.right_config_label.update()
+                self.right_config_label.repaint()
 
     def _format_configuration_html(self, canvas: ElectrodeCanvas) -> str:
         model = canvas.model
@@ -574,33 +630,30 @@ class Step1View(BaseStepView):
 
     def _create_upload_tsv_group(self) -> QGroupBox:
         gb_upload = QGroupBox("Upload TSV file")
-        gb_upload.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-        gb_upload.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        gb_upload.setStyleSheet(
-            "QGroupBox { margin-top: 8pt; } "
-            "QGroupBox::title { color: #ff8800; margin-left: 4pt; "
-            "font-size: 16pt; font-weight: 600; }"
-        )
+        gb_upload.setFixedHeight(100)          
+        gb_upload.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         layout = QHBoxLayout(gb_upload)
 
         self.file_path_edit = FileDropLineEdit(self._on_file_dropped)
+        self.file_path_edit.setFixedHeight(45)
+        self.file_path_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.file_path_edit.setReadOnly(True)
-        self.file_path_edit.setClearButtonEnabled(True)
+        self.file_path_edit.setClearButtonEnabled(False)
         self.file_path_edit.textChanged.connect(self._on_file_path_changed)
-        self.file_path_edit.setToolTip("Drop a .tsv here, or use the buttons")
+        self.file_path_edit.setPlaceholderText("Drop a .tsv annotation file or use the buttons")
 
         open_button = QPushButton()
         open_button.setText("Open")
-        open_button.setMaximumWidth(60)
-        #open_button.setIcon(self.parent_style.standardIcon(QStyle.SP_DialogOpenButton))
+        open_button.setMaximumWidth(90)
+        open_button.setFixedHeight(45)
         open_button.setToolTip("Open existing file")
         open_button.clicked.connect(self.open_existing_file)
 
         create_button = QPushButton()
         create_button.setText("New")
-        create_button.setMaximumWidth(60)
-        #create_button.setIcon(self.parent_style.standardIcon(QStyle.SP_FileIcon))
+        create_button.setMaximumWidth(90)
+        create_button.setFixedHeight(45)
         create_button.setToolTip("Create new file")
         create_button.clicked.connect(self.create_new_file)
 
@@ -613,21 +666,18 @@ class Step1View(BaseStepView):
     def _create_clinical_scales_group(self) -> QGroupBox:
         """Create the clinical scales group box."""
         gb_clinical = QGroupBox("Clinical scales")
-        gb_clinical.setStyleSheet(
-            "QGroupBox::title { color: #ff8800; font-size: 11pt; font-weight: 600; }"
-        )
-        gb_clinical.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        gb_clinical.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        gb_clinical.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         layout = QVBoxLayout(gb_clinical)
 
         # Preset buttons
         preset_row = QHBoxLayout()
         self.preset_buttons = []
-        preset_row.addStretch(1)
+        #preset_row.addStretch(1)
         
         # Settings button
-        settings_btn = QPushButton('⚙️')
+        settings_btn = QPushButton()
+        settings_btn.setIcon(self._create_settings_icon())
         settings_btn.setObjectName("settings_clincal_scales")
         settings_btn.setToolTip("Settings clinical scales")
         settings_btn.clicked.connect(self._open_clinical_scales_settings)
@@ -643,12 +693,23 @@ class Step1View(BaseStepView):
 
         # Container for dynamic scale rows - expands to show all rows
         scroll_content = QWidget()
+      # scroll_content.setStyleSheet("background: transparent; border: none;")
         scroll_content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  
         self.clinical_scales_container = QVBoxLayout(scroll_content)
         self.clinical_scales_container.setContentsMargins(0, 0, 0, 0)
 
         # Scrollable area - will only scroll when user resizes window smaller
         scroll_area = QScrollArea()
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollArea > QWidget > QWidget {
+                background: transparent;
+            }
+        """)
+       #scroll_area.setAttribute(Qt.WA_TranslucentBackground, True)
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QScrollArea.NoFrame)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -663,11 +724,7 @@ class Step1View(BaseStepView):
     def _create_notes_group(self) -> QGroupBox:
         """Create the initial notes group box."""
         gb_notes = QGroupBox("Initial notes")
-        gb_notes.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding) 
-        gb_notes.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        gb_notes.setStyleSheet(
-            "QGroupBox::title { color: #ff8800; font-size: 11pt; font-weight: 600; }"
-        )
+        gb_notes.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) 
 
         layout = QHBoxLayout(gb_notes)
         self.notes_edit = QTextEdit()
@@ -702,8 +759,8 @@ class Step1View(BaseStepView):
     def _load_existing_file(self, file_path: str) -> None:
         import csv
 
-        block0_row = None
-        block0_scales: List[Tuple[str, str]] = []
+        initial_rows = {}  # session_id -> row data
+        max_session_id = -1
         max_block = -1
 
         try:
@@ -720,87 +777,126 @@ class Step1View(BaseStepView):
 
                     max_block = max(max_block, bid)
 
-                    if bid == 0:
-                        if block0_row is None:
-                            block0_row = row
-                        sname = row.get("scale_name", None)
-                        sval = row.get("scale_value", None)
-                        if sname not in (None, ""):
-                            block0_scales.append((str(sname), "" if sval is None else str(sval)))
+                    # Look for initial entries (is_initial = 1)
+                    is_initial = row.get("is_initial", "0")
+                    if is_initial == "1":
+                        session_id_raw = row.get("session_ID", "")
+                        if session_id_raw is None or session_id_raw == "":
+                            continue
+                        try:
+                            session_id = int(float(session_id_raw))
+                            # Keep the row with the highest session_id for each session
+                            if session_id not in initial_rows or bid > initial_rows[session_id]["block_id"]:
+                                initial_rows[session_id] = {
+                                    "row": row,
+                                    "block_id": bid
+                                }
+                            max_session_id = max(max_session_id, session_id)
+                        except Exception:
+                            continue
 
             self.file_path_edit.setText(file_path)
             self.current_file_mode = "existing"
             self.next_block_id = max_block + 1
 
-            if block0_row is not None:
-                group_val = block0_row.get("group", None)
+            # Load data from the latest initial session (highest session_id)
+            if max_session_id >= 0 and max_session_id in initial_rows:
+                latest_initial = initial_rows[max_session_id]["row"]
+                
+                # Load electrode model (if present in file)
+                model_name = latest_initial.get("electrode_model", None)
+                if model_name not in (None, "") and hasattr(self, "model_combo"):
+                    try:
+                        self.model_combo.setCurrentText(str(model_name))
+                        self.on_model_changed(self.model_combo.currentText())
+                    except Exception:
+                        pass
+                
+                # Load group
+                group_val = latest_initial.get("group_ID", None)
                 if group_val not in (None, "") and hasattr(self, "group_combo"):
                     try:
                         self.group_combo.setCurrentText(str(group_val))
                     except Exception:
                         pass
 
-                if block0_row.get("left_stim_freq") not in (None, ""):
-                    self.left_stim_freq_edit.setText(str(block0_row.get("left_stim_freq")))
-                if block0_row.get("right_stim_freq") not in (None, ""):
-                    self.right_stim_freq_edit.setText(str(block0_row.get("right_stim_freq")))
+                # Load clinical scales
+                block0_scales = []
+                # Re-read file to get all scales from the latest initial session
+                with open(file_path, "r", newline="", encoding="utf-8") as f:
+                    reader = csv.DictReader(f, delimiter="\t")
+                    for row in reader:
+                        if (row.get("session_ID") == str(max_session_id) and 
+                            row.get("is_initial") == "1"):
+                            sname = row.get("scale_name", None)
+                            sval = row.get("scale_value", None)
+                            if sname not in (None, ""):
+                                block0_scales.append((str(sname), "" if sval is None else str(sval)))
 
-                left_anode = "" if block0_row.get("left_anode") in (None, "") else str(block0_row.get("left_anode"))
-                left_cathode = "" if block0_row.get("left_cathode") in (None, "") else str(block0_row.get("left_cathode"))
-                right_anode = "" if block0_row.get("right_anode") in (None, "") else str(block0_row.get("right_anode"))
-                right_cathode = "" if block0_row.get("right_cathode") in (None, "") else str(block0_row.get("right_cathode"))
-
-                self._apply_contact_text_to_canvas(self.left_canvas, left_anode, left_cathode)
-                self._apply_contact_text_to_canvas(self.right_canvas, right_anode, right_cathode)
-
-                if block0_row.get("left_amplitude") not in (None, ""):
-                    self.left_amp_edit.setText(str(block0_row.get("left_amplitude")))
-                if block0_row.get("right_amplitude") not in (None, ""):
-                    self.right_amp_edit.setText(str(block0_row.get("right_amplitude")))
-                if block0_row.get("left_pulse_width") not in (None, ""):
-                    self.left_pw_edit.setText(str(block0_row.get("left_pulse_width")))
-                if block0_row.get("right_pulse_width") not in (None, ""):
-                    self.right_pw_edit.setText(str(block0_row.get("right_pulse_width")))
-
-                if block0_row.get("notes") not in (None, ""):
-                    self.notes_edit.setText(str(block0_row.get("notes")))
-
-            self.update_configuration_display()
-
-            if block0_scales and hasattr(self, "on_add_callback") and hasattr(self, "on_remove_callback"):
-                for _, _, row_layout in self.clinical_scales_rows:
-                    while row_layout.count():
-                        item = row_layout.takeAt(0)
-                        widget = item.widget()
-                        if widget is not None:
-                            widget.deleteLater()
-                    self.clinical_scales_container.removeItem(row_layout)
-                self.clinical_scales_rows = []
-
-                while self.clinical_scales_container.count():
-                    item = self.clinical_scales_container.takeAt(0)
-                    if item.spacerItem():
-                        continue
-                    if item.widget():
-                        item.widget().deleteLater()
-
-                for scale_name, scale_value in block0_scales:
-                    self._add_clinical_scale_row(
-                        scale_name,
-                        with_minus=True,
-                        on_remove=self.on_remove_callback,
-                    )
+                # Load notes
+                notes_val = latest_initial.get("notes", None)
+                if notes_val not in (None, "") and hasattr(self, "notes_edit"):
                     try:
-                        self.clinical_scales_rows[-1][1].setText(scale_value)
+                        self.notes_edit.setPlainText(str(notes_val))
                     except Exception:
-                        pass
+                        self.notes_edit.setText(str(notes_val))
 
-                self._add_clinical_scale_row("", with_plus=True, on_add=self.on_add_callback)
-                self.clinical_scales_container.addStretch()
+                # Load stimulation parameters
+                self._load_stimulation_parameters(latest_initial)
+
+                # Update clinical scales UI
+                # Store scales for later if callbacks not ready yet
+                self._pending_scales = block0_scales if block0_scales else []
+                
+                if block0_scales and hasattr(self, "on_add_callback") and hasattr(self, "on_remove_callback"):
+                    for _, _, row_layout in self.clinical_scales_rows:
+                        while row_layout.count():
+                            item = row_layout.takeAt(0)
+                            widget = item.widget()
+                            if widget is not None:
+                                widget.deleteLater()
+                        self.clinical_scales_container.removeItem(row_layout)
+                    self.clinical_scales_rows = []
+
+                    for scale_name, scale_value in block0_scales:
+                        self._add_clinical_scale_row(scale_name, scale_value, on_add=self.on_add_callback)
+
+                    self._add_clinical_scale_row("", with_plus=True, on_add=self.on_add_callback)
+                    self.clinical_scales_container.addStretch()
+                    self._pending_scales = []  # Clear pending since we loaded them
+
+                self.update_configuration_display()
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to load file: {str(e)}")
     
+    def _load_stimulation_parameters(self, row: dict) -> None:
+        """Restore stimulation edits + electrode selections from a TSV row."""
+        # Text fields
+        try:
+            self.left_stim_freq_edit.setText(str(row.get("left_stim_freq", "") or ""))
+            self.left_amp_edit.setText(str(row.get("left_amplitude", "") or ""))
+            self.left_pw_edit.setText(str(row.get("left_pulse_width", "") or ""))
+            self.right_stim_freq_edit.setText(str(row.get("right_stim_freq", "") or ""))
+            self.right_amp_edit.setText(str(row.get("right_amplitude", "") or ""))
+            self.right_pw_edit.setText(str(row.get("right_pulse_width", "") or ""))
+        except Exception:
+            pass
+
+        # Electrode selections
+        left_anode = str(row.get("left_anode", "") or "")
+        left_cathode = str(row.get("left_cathode", "") or "")
+        right_anode = str(row.get("right_anode", "") or "")
+        right_cathode = str(row.get("right_cathode", "") or "")
+
+        try:
+            self._apply_contact_text_to_canvas(self.left_canvas, left_anode, left_cathode)
+            self._apply_contact_text_to_canvas(self.right_canvas, right_anode, right_cathode)
+        except Exception:
+            pass
+
+        self.update_configuration_display()
+
     def create_new_file(self) -> None:
         """Create new file with BIDS-style naming."""
         from datetime import datetime
@@ -850,6 +946,14 @@ class Step1View(BaseStepView):
         self.on_add_callback = on_add_callback
         self.on_remove_callback = on_remove_callback
         
+        # Check if we have pending scales from file load
+        if hasattr(self, '_pending_scales') and self._pending_scales:
+            # Use pending scales instead of preset_scales
+            scales_to_load = self._pending_scales
+            self._pending_scales = []
+        else:
+            scales_to_load = [(name, "") for name in preset_scales]
+        
         # Clear existing rows
         for _, _, row_layout in self.clinical_scales_rows:
             while row_layout.count():
@@ -860,19 +964,25 @@ class Step1View(BaseStepView):
             self.clinical_scales_container.removeItem(row_layout)
         self.clinical_scales_rows = []
 
-        # Add preset scales
-        for name in preset_scales:
-            self._add_clinical_scale_row(name, with_minus=True, on_remove=on_remove_callback)
+        # Add scales (either from pending or preset)
+        for item in scales_to_load:
+            if isinstance(item, tuple):
+                name, value = item
+                self._add_clinical_scale_row(
+                    name,
+                    value,
+                    with_minus=True,
+                    on_remove=on_remove_callback,
+                )
+            else:
+                # Legacy: just a name string
+                self._add_clinical_scale_row(item, with_minus=True, on_remove=on_remove_callback)
 
         # Add empty row with add button
         self._add_clinical_scale_row("", with_plus=True, on_add=on_add_callback)
         
         # Add stretch at the bottom to push content up
         self.clinical_scales_container.addStretch()
-        
-        # Store callbacks for preset buttons
-        self.on_add_callback = on_add_callback
-        self.on_remove_callback = on_remove_callback
         
         # Connect preset buttons to their respective scales (only now that callbacks are available)
         self._connect_preset_buttons()
@@ -944,6 +1054,7 @@ class Step1View(BaseStepView):
     def _add_clinical_scale_row(
         self,
         name: str = "",
+        value: str = "",
         with_plus: bool = False,
         with_minus: bool = False,
         on_add: Callable = None,
@@ -960,7 +1071,9 @@ class Step1View(BaseStepView):
         score_edit = QLineEdit()
         score_edit.setPlaceholderText(PLACEHOLDERS["scale_score"])
         score_edit.setMaximumWidth(50)
+        score_edit.setText(value)
 
+        btn = None
         if with_plus:
             btn = QPushButton("+")
             btn.setToolTip("Add clinical scale")
@@ -973,6 +1086,10 @@ class Step1View(BaseStepView):
             btn.setMaximumWidth(24)
             if on_remove:
                 btn.clicked.connect(lambda: on_remove(row))
+        else:
+            # Fallback placeholder (prevents UnboundLocalError)
+            btn = QLabel("")
+            btn.setFixedWidth(24)
                 
         # Add widgets to row
         row.addWidget(QLabel("Name:"))

@@ -143,8 +143,6 @@ MEDTRONIC_3391 = ElectrodeModel(
 )
 
 # Medtronic SenSight Directional Leads
-# Models B33005 and B33015 have contacts 0 and 3 as ring electrodes
-# and contacts 1 and 2 as segmented (directional) electrodes
 MEDTRONIC_B33005 = ElectrodeModel(
     name='Medtronic SenSight B33005',
     num_contacts=4,
@@ -191,7 +189,7 @@ BOSTON_VERCISE_CARTESIA_HX = ElectrodeModel(
     contact_height=1.5,
     contact_spacing=1.5,
     lead_diameter=1.3,
-    is_directional=False
+    is_directional=True
 )
 
 BOSTON_VERCISE_CARTESIA_X = ElectrodeModel(
@@ -225,50 +223,50 @@ ABBOTT_ACTIVETIP_6146_6149 = ElectrodeModel(
     is_directional=False
 )
 
-ABBOTT_STJUDE_6172 = ElectrodeModel(
+ABBOTT_STJUDE_INFINITY_6172 = ElectrodeModel(
     name='Abbott StJude 6172',
     num_contacts=4,
     contact_height=1.5,
     contact_spacing=1.5,
     lead_diameter=1.27,
-    is_directional=False
+    is_directional=True
 )
 
-ABBOTT_STJUDE_6173 = ElectrodeModel(
+ABBOTT_STJUDE_INFINITY_6173 = ElectrodeModel(
     name='Abbott StJude 6173',
     num_contacts=4,
     contact_height=3.0,
     contact_spacing=4.0,
     lead_diameter=1.27,
-    is_directional=False
-)
-
-ABBOTT_INFINITY_6172 = ElectrodeModel(
-    name='Abbott Infinity 6172',
-    num_contacts=8,
-    contact_height=1.5,
-    contact_spacing=0.5,
-    lead_diameter=1.27,
-    is_directional=False
-)
-
-ABBOTT_INFINITY_6173 = ElectrodeModel(
-    name='Abbott Infinity 6173',
-    num_contacts=8,
-    contact_height=1.5,
-    contact_spacing=1.5,
-    lead_diameter=1.27,
-    is_directional=False
-)
-
-ABBOTT_INFINITY_DIRECTED = ElectrodeModel(
-    name='Abbott Infinity Directed',
-    num_contacts=8,
-    contact_height=1.5,
-    contact_spacing=0.5,
-    lead_diameter=1.27,
     is_directional=True
 )
+
+# ABBOTT_INFINITY_6172 = ElectrodeModel(
+#     name='Abbott Infinity 6172',
+#     num_contacts=8,
+#     contact_height=1.5,
+#     contact_spacing=0.5,
+#     lead_diameter=1.27,
+#     is_directional=False
+# )
+
+# ABBOTT_INFINITY_6173 = ElectrodeModel(
+#     name='Abbott Infinity 6173',
+#     num_contacts=8,
+#     contact_height=1.5,
+#     contact_spacing=1.5,
+#     lead_diameter=1.27,
+#     is_directional=False
+# )
+
+# ABBOTT_INFINITY_DIRECTED = ElectrodeModel(
+#     name='Abbott Infinity Directed',
+#     num_contacts=8,
+#     contact_height=1.5,
+#     contact_spacing=0.5,
+#     lead_diameter=1.27,
+#     is_directional=True
+# )
 
 # ============================================================================
 # PINS MEDICAL (CHINA) ELECTRODES
@@ -335,11 +333,11 @@ ELECTRODE_MODELS = {
     # Abbott (St. Jude)
     'Abbott ActiveTip 6142-6145': ABBOTT_ACTIVETIP_6142_6145,
     'Abbott ActiveTip 6146-6149': ABBOTT_ACTIVETIP_6146_6149,
-    'Abbott StJude 6172': ABBOTT_STJUDE_6172,
-    'Abbott StJude 6173': ABBOTT_STJUDE_6173,
-    'Abbott Infinity 6172': ABBOTT_INFINITY_6172,
-    'Abbott Infinity 6173': ABBOTT_INFINITY_6173,
-    'Abbott Infinity Directed': ABBOTT_INFINITY_DIRECTED,
+    'Abbott StJude Infinity 6172': ABBOTT_STJUDE_INFINITY_6172,
+    'Abbott StJude Infinity 6173': ABBOTT_STJUDE_INFINITY_6173,
+    # 'Abbott Infinity 6172': ABBOTT_INFINITY_6172,
+    # 'Abbott Infinity 6173': ABBOTT_INFINITY_6173,
+    # 'Abbott Infinity Directed': ABBOTT_INFINITY_DIRECTED,
     
     # PINS Medical
     'PINS Medical L301': PINS_L301,
@@ -372,11 +370,11 @@ MANUFACTURERS = {
     'Abbott': [
         'Abbott ActiveTip 6142-6145',
         'Abbott ActiveTip 6146-6149',
-        'Abbott StJude 6172',
-        'Abbott StJude 6173',
-        'Abbott Infinity 6172',
-        'Abbott Infinity 6173',
-        'Abbott Infinity Directed',
+        'Abbott StJude Infinity 6172',
+        'Abbott StJude Infinity 6173',
+        # 'Abbott Infinity 6172',
+        # 'Abbott Infinity 6173',
+        # 'Abbott Infinity Directed',
     ],
     'PINS Medical': [
         'PINS Medical L301',

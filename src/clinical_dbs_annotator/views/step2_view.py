@@ -39,15 +39,14 @@ class Step2View(BaseStepView):
     - Configuration of scale ranges (min/max values)
     """
 
-    def __init__(self, logo_pixmap: QPixmap, parent_style):
+    def __init__(self, parent_style):
         """
         Initialize Step 2 view.
 
         Args:
-            logo_pixmap: Application logo
             parent_style: Parent widget style for icon access
         """
-        super().__init__(logo_pixmap)
+        super().__init__()
         self.parent_style = parent_style
         self.session_presets: Dict[str, List[Tuple[str, str, str]]] = self._load_session_presets()
         self.preset_buttons: List[QPushButton] = []
@@ -56,12 +55,11 @@ class Step2View(BaseStepView):
         ] = []
         self._setup_ui()
 
+    def get_header_title(self) -> str:
+        return "Session Scale Configuration"
+
     def _setup_ui(self) -> None:
         """Set up the UI layout."""
-        # Header
-        header = self.create_header("Session Scale Configuration")
-        self.main_layout.addWidget(header)
-
         # Session scales group
         session_group = self._create_session_scales_group()
         self.main_layout.addWidget(session_group)

@@ -37,11 +37,13 @@ from ..config import (
     ICON_FILENAME,
     ICONS_DIR,
     WINDOW_SIZE_RATIO,
+    RESPONSIVE_WINDOW_RATIOS,
+    SCREEN_SIZE_THRESHOLDS,
     WINDOW_MIN_SIZE,
     WINDOW_MAX_SIZE_RATIO,
 )
 from ..controllers import WizardController
-from ..utils import resource_path, get_theme_manager
+from ..utils import resource_path, get_theme_manager, rounded_pixmap
 from .step0_view import Step0View
 from .step1_view import Step1View
 from .step2_view import Step2View
@@ -99,23 +101,41 @@ class WizardWindow(QWidget):
         logical_dpi = screen.logicalDotsPerInch()
         self.dpi_scale = logical_dpi / BASE_DPI if FONT_SCALE_ENABLED else 1.0
 
-        # Calculate desired window size with ratio
-        desired_width = int(screen_width * WINDOW_SIZE_RATIO["width"])
-        desired_height = int(screen_height * WINDOW_SIZE_RATIO["height"])
+        # Determine screen size category for responsive design
+        if screen_width < SCREEN_SIZE_THRESHOLDS["small"]:
+            size_category = "small"
+        elif screen_width < SCREEN_SIZE_THRESHOLDS["medium"]:
+            size_category = "medium"
+        else:
+            size_category = "large"
+
+        # Get responsive ratios based on screen size
+        ratios = RESPONSIVE_WINDOW_RATIOS[size_category]
+
+        # Calculate desired window size with responsive ratios
+        desired_width = int(screen_width * ratios["width"])
+        desired_height = int(screen_height * ratios["height"])
 
         # Apply minimum size constraints
         width = max(desired_width, WINDOW_MIN_SIZE["width"])
         height = max(desired_height, WINDOW_MIN_SIZE["height"])
 
-        # Apply maximum size constraints (prevent too large on big screens)
-        max_width = int(screen_width * WINDOW_MAX_SIZE_RATIO["width"])
-        max_height = int(screen_height * WINDOW_MAX_SIZE_RATIO["height"])
+        # Apply maximum size constraints with margin for small screens
+        margin = 100 if screen_width < SCREEN_SIZE_THRESHOLDS["small"] else 50
+        max_width = min(width, screen_width - margin)
+        max_height = min(height, screen_height - margin)
         width = min(width, max_width)
         height = min(height, max_height)
 
-        # Calculate position (centered)
-        x = int((screen_width - width) / 2)
-        y = int((screen_height - height) / 2)
+        # Apply maximum size ratios (prevent too large on big screens)
+        max_width_ratio = int(screen_width * WINDOW_MAX_SIZE_RATIO["width"])
+        max_height_ratio = int(screen_height * WINDOW_MAX_SIZE_RATIO["height"])
+        width = min(width, max_width_ratio)
+        height = min(height, max_height_ratio)
+
+        # Calculate position (centered with bounds checking)
+        x = max(0, min(int((screen_width - width) / 2), screen_width - width))
+        y = max(0, min(int((screen_height - height) / 2), screen_height - height))
 
         # Set geometry and constraints
         self.setGeometry(x, y, width, height)
@@ -131,7 +151,7 @@ class WizardWindow(QWidget):
         """Set up the main UI layout."""
         main_layout = QVBoxLayout(self)
 
-        # Add theme toggle button in top-right corner
+        # Header row (title + theme/help)
         header_layout = self._create_header()
         main_layout.addLayout(header_layout)
 
@@ -179,7 +199,22 @@ class WizardWindow(QWidget):
             QHBoxLayout containing header elements
         """
         header_layout = QHBoxLayout()
-        header_layout.addStretch()  # Push button to the right
+
+        # Left: logo + title
+        self.header_logo_label = QLabel()
+        if not self.logo_pixmap.isNull():
+            logo = self.logo_pixmap.scaledToWidth(34, Qt.SmoothTransformation)
+            logo = rounded_pixmap(logo, 5)
+            self.header_logo_label.setPixmap(logo)
+        self.header_logo_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        header_layout.addWidget(self.header_logo_label)
+
+        self.header_title_label = QLabel("")
+        self.header_title_label.setStyleSheet("font-size: 14pt; font-weight: 500;")
+        self.header_title_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        header_layout.addWidget(self.header_title_label)
+
+        header_layout.addStretch()  # Push buttons to the right
 
         # Theme toggle button
         self.theme_toggle_btn = QPushButton()
@@ -202,6 +237,31 @@ class WizardWindow(QWidget):
         header_layout.addWidget(self.info_btn)
 
         return header_layout
+
+    def _get_current_header_title(self) -> str:
+        current = self.stack.currentWidget() if hasattr(self, "stack") else None
+        if current is None:
+            return ""
+
+        if hasattr(current, "get_header_title"):
+            try:
+                return str(current.get_header_title() or "")
+            except Exception:
+                return ""
+
+        # Fallbacks for non-BaseStepView screens
+        if isinstance(current, Step0View):
+            return ""
+        if isinstance(current, AnnotationsFileView):
+            return "Output File"
+        if isinstance(current, AnnotationsSessionView):
+            return "Session Annotations"
+        return ""
+
+    def _update_header_title(self) -> None:
+        if not hasattr(self, "header_title_label"):
+            return
+        self.header_title_label.setText(self._get_current_header_title())
 
     def _update_theme_button_icon(self) -> None:
         """Update the theme toggle button icon based on current theme."""
@@ -318,19 +378,19 @@ class WizardWindow(QWidget):
         """Load full workflow views (lazy loading)."""
         if self.step1_view is None:
             from .step1_view import Step1View
-            self.step1_view = Step1View(self.logo_pixmap, self.style())
+            self.step1_view = Step1View(self.style())
             self.stack.addWidget(self.step1_view)
             self._connect_step1_signals()
         
         if self.step2_view is None:
             from .step2_view import Step2View
-            self.step2_view = Step2View(self.logo_pixmap, self.style())
+            self.step2_view = Step2View(self.style())
             self.stack.addWidget(self.step2_view)
             self._connect_step2_signals()
             
         if self.step3_view is None:
             from .step3_view import Step3View
-            self.step3_view = Step3View(self.logo_pixmap, self.style())
+            self.step3_view = Step3View(self.style())
             self.stack.addWidget(self.step3_view)
             self._connect_step3_signals()
 
@@ -380,12 +440,6 @@ class WizardWindow(QWidget):
         width = max(desired_width, WINDOW_MIN_SIZE["width"])
         height = max(desired_height, WINDOW_MIN_SIZE["height"])
 
-        # Apply maximum size constraints
-        max_width = int(screen_width * WINDOW_MAX_SIZE_RATIO["width"])
-        max_height = int(screen_height * WINDOW_MAX_SIZE_RATIO["height"])
-        width = min(width, max_width)
-        height = min(height, max_height)
-
         # Center the normal window
         x = int((screen_width - width) / 2)
         y = int((screen_height - height) / 2)
@@ -394,10 +448,10 @@ class WizardWindow(QWidget):
         self.setMinimumSize(1, 1)
         self.setMaximumSize(16777215, 16777215)  # Qt max size
         
-        # Apply new geometry and constraints
+        # Apply new geometry and constraints (allow full maximization)
         self.setGeometry(x, y, width, height)
         self.setMinimumSize(WINDOW_MIN_SIZE["width"], WINDOW_MIN_SIZE["height"])
-        self.setMaximumSize(16777215, 16777215)
+        self.setMaximumSize(screen_width, screen_height)  # Allow full screen maximization
 
         self._clamp_to_screen()
 
@@ -468,12 +522,6 @@ class WizardWindow(QWidget):
         )
         self.step3_view.close_button.clicked.connect(
             lambda: self.controller.close_session(self)
-        )
-        self.step3_view.export_button.clicked.connect(
-            lambda: self.controller.export_session_report(self)
-        )
-        self.step3_view.export_excel_action.triggered.connect(
-            lambda: self.controller.export_session_excel(self)
         )
         self.step3_view.export_word_action.triggered.connect(
             lambda: self.controller.export_session_word(self)
@@ -546,7 +594,7 @@ class WizardWindow(QWidget):
         """Navigate to Step 1 (full workflow)."""
         # Create Step 1 if needed
         if self.step1_view is None:
-            self.step1_view = Step1View(self.logo_pixmap, self.style())
+            self.step1_view = Step1View(self.style())
             self.stack.addWidget(self.step1_view)
             self._connect_step1_signals()
 
@@ -605,7 +653,7 @@ class WizardWindow(QWidget):
 
         # Create Step 2 if needed
         if self.step2_view is None:
-            self.step2_view = Step2View(self.logo_pixmap, self.style())
+            self.step2_view = Step2View(self.style())
             self.stack.addWidget(self.step2_view)
             self._connect_step2_signals()
 
@@ -620,7 +668,7 @@ class WizardWindow(QWidget):
 
         # Create Step 3 if needed
         if self.step3_view is None:
-            self.step3_view = Step3View(self.logo_pixmap, self.style())
+            self.step3_view = Step3View(self.style())
             self.stack.addWidget(self.step3_view)
             self._connect_step3_signals()
         else:
@@ -654,6 +702,7 @@ class WizardWindow(QWidget):
         """Update UI elements based on current step."""
         if not hasattr(self, "back_button"):
             return
+        self._update_header_title()
         # Hide back button completely on step 0 (mode selection)
         self.back_button.setVisible(self.current_step > 0)
 

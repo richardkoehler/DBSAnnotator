@@ -18,18 +18,29 @@ ICO_FILENAME = "logobml.ico"
 STYLE_FILENAME = "style.qss"
 ICONS_DIR = "icons"
 
-# Window configuration
+# Window size ratios for responsive design
 WINDOW_SIZE_RATIO = {
-    "x": 0.02,
-    "y": 0.02,
     "width": 0.95,
     "height": 0.95,
 }
 
+# Responsive window size ratios based on screen size
+RESPONSIVE_WINDOW_RATIOS = {
+    "small": {"width": 0.9, "height": 0.85},   # < 1400px width
+    "medium": {"width": 0.85, "height": 0.8}, # 1400-1919px width  
+    "large": {"width": 0.75, "height": 0.75},  # >= 1920px width
+}
+
+# Screen size thresholds
+SCREEN_SIZE_THRESHOLDS = {
+    "small": 1400,
+    "medium": 1920,
+}
+
 # Minimum window size (in pixels) for usability
 WINDOW_MIN_SIZE = {
-    "width": 600,
-    "height": 400,
+    "width": 1000,  # Increased from 600 for better usability
+    "height": 700,  # Increased from 400 for better usability
 }
 
 # Maximum window size ratio (prevents window from being too large on big screens)
@@ -39,7 +50,7 @@ WINDOW_MAX_SIZE_RATIO = {
 }
 
 # Responsive font scaling based on DPI
-FONT_SCALE_ENABLED = True
+FONT_SCALE_ENABLED = False  # Disabilitato per schermi piccoli
 BASE_DPI = 96  # Standard DPI
 
 # TSV file configuration
@@ -49,8 +60,10 @@ TSV_COLUMNS = [
     "block_id",
     "group_ID",
     "session_ID",
+    "is_initial",
     "scale_name",
     "scale_value",
+    "electrode_model",
     "left_stim_freq",
     "left_cathode",
     "left_anode",

@@ -235,8 +235,14 @@ class WizardController:
         notes = view.notes_edit.toPlainText()
         group = view.group_combo.currentText() if hasattr(view, "group_combo") else ""
 
-        # Write to file
-        self.session_data.write_clinical_scales(clinical_scales, stimulation, group=group, notes=notes)
+        electrode_model = view.model_combo.currentText() if hasattr(view, "model_combo") else ""
+        self.session_data.write_clinical_scales(
+            clinical_scales,
+            stimulation,
+            group=group,
+            electrode_model=electrode_model,
+            notes=notes,
+        )
 
         # Store stimulation for next step
         self.current_stimulation = stimulation
@@ -343,8 +349,13 @@ class WizardController:
         notes = view.session_notes_edit.toPlainText()
         group = view.group_combo.currentText() if hasattr(view, "group_combo") else ""
 
-        # Write to file
-        self.session_data.write_session_scales(session_scales, stimulation, group=group, notes=notes)
+        self.session_data.write_session_scales(
+            session_scales,
+            stimulation,
+            group=group,
+            electrode_model=self.current_electrode_model_name or "",
+            notes=notes,
+        )
 
         # Animate button and clear notes
         animate_button(view.insert_button)
@@ -362,24 +373,6 @@ class WizardController:
             parent, "Session closed", "Session closed and file saved."
         )
         parent.close()
-
-    def export_session_report(self, parent) -> None:
-        """
-        Export current session data to Excel format.
-        
-        Args:
-            parent: The parent widget for dialogs
-        """
-        self.session_exporter.export_to_excel(parent)
-
-    def export_session_excel(self, parent) -> None:
-        """
-        Export current session data to Excel format.
-        
-        Args:
-            parent: The parent widget for dialogs
-        """
-        self.session_exporter.export_to_excel(parent)
 
     def export_session_word(self, parent) -> None:
         """
