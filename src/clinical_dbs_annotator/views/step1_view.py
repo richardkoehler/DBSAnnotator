@@ -43,7 +43,7 @@ from .base_view import BaseStepView
 from ..models import ElectrodeCanvas
 # Import configuration
 from ..config_electrode_models import ContactState, ElectrodeModel, ELECTRODE_MODELS, MANUFACTURERS, get_all_manufacturers
-from ..ui import FileDropLineEdit
+from ..ui import FileDropLineEdit, AmplitudeSplitWidget, get_cathode_labels
 
 
 class Step1View(BaseStepView):
@@ -116,11 +116,15 @@ class Step1View(BaseStepView):
         """Callback when left electrode canvas validation state changes."""
         self._left_selection_valid = is_valid
         self.update_configuration_display()
+        if hasattr(self, "left_amp_split"):
+            self.left_amp_split.update_cathodes(get_cathode_labels(self.left_canvas))
 
     def _on_right_canvas_validation(self, is_valid: bool, error_msg: str) -> None:
         """Callback when right electrode canvas validation state changes."""
         self._right_selection_valid = is_valid
         self.update_configuration_display()
+        if hasattr(self, "right_amp_split"):
+            self.right_amp_split.update_cathodes(get_cathode_labels(self.right_canvas))
 
     def _setup_ui(self) -> None:
         """Set up the UI layout."""
@@ -229,8 +233,11 @@ class Step1View(BaseStepView):
         self.left_pw_edit.setValidator(QIntValidator(pw_limits["min"], pw_limits["max"]))
         pw_row.addWidget(self.left_pw_edit)
         
+        self.left_amp_split = AmplitudeSplitWidget(self.left_amp_edit)
+
         left_group_layout.addLayout(freq_row)
         left_group_layout.addLayout(amp_row)
+        left_group_layout.addWidget(self.left_amp_split)
         left_group_layout.addLayout(pw_row)
 
         self.left_config_box = QFrame()
@@ -279,8 +286,11 @@ class Step1View(BaseStepView):
         self.right_pw_edit.setValidator(QIntValidator(pw_limits["min"], pw_limits["max"]))
         pw_row.addWidget(self.right_pw_edit)
         
+        self.right_amp_split = AmplitudeSplitWidget(self.right_amp_edit)
+
         right_group_layout.addLayout(freq_row)
         right_group_layout.addLayout(amp_row)
+        right_group_layout.addWidget(self.right_amp_split)
         right_group_layout.addLayout(pw_row)
 
         self.right_config_box = QFrame()
@@ -303,6 +313,15 @@ class Step1View(BaseStepView):
         sidebar_layout.addWidget(right_group)
         sidebar_layout.addStretch(1)
 
+        # Wrap sidebar in a scroll area so it scrolls when rows overflow
+        sidebar_widget = QWidget()
+        sidebar_widget.setLayout(sidebar_layout)
+        sidebar_scroll = QScrollArea()
+        sidebar_scroll.setWidget(sidebar_widget)
+        sidebar_scroll.setWidgetResizable(True)
+        sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        sidebar_scroll.setFrameShape(QFrame.NoFrame)
+
         electrodes_layout = QVBoxLayout()
         electrodes_row = QHBoxLayout()
 
@@ -322,7 +341,7 @@ class Step1View(BaseStepView):
         electrodes_layout.addLayout(electrodes_row)
         electrodes_layout.addLayout(self._create_electrode_legend_layout())
 
-        container_layout.addLayout(sidebar_layout, 0)
+        container_layout.addWidget(sidebar_scroll, 0)
         container_layout.addLayout(electrodes_layout, 1)
 
         layout = QVBoxLayout(gb_init)
@@ -606,6 +625,11 @@ class Step1View(BaseStepView):
         apply_tokens(cathode_text, ContactState.CATHODIC)
 
         canvas.update()
+        # Refresh amplitude split widget for this canvas
+        if canvas is self.left_canvas and hasattr(self, "left_amp_split"):
+            self.left_amp_split.update_cathodes(get_cathode_labels(self.left_canvas))
+        elif canvas is self.right_canvas and hasattr(self, "right_amp_split"):
+            self.right_amp_split.update_cathodes(get_cathode_labels(self.right_canvas))
         
     def reset_all(self):
         """Reset all contacts and case"""
@@ -616,6 +640,10 @@ class Step1View(BaseStepView):
         self.left_canvas.update()
         self.right_canvas.update()
         self.update_configuration_display()
+        if hasattr(self, "left_amp_split"):
+            self.left_amp_split.update_cathodes([])
+        if hasattr(self, "right_amp_split"):
+            self.right_amp_split.update_cathodes([])
         
     def export_configuration(self):
         """Export current configuration to console"""

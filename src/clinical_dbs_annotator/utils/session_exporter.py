@@ -324,17 +324,24 @@ class SessionExporter:
         # Session duration (from first to last timestamp)
         duration_str = "N/A"
         try:
-            if 'time' in df.columns:
-                times = pd.to_datetime(df['time'], format='%Y-%m-%d %H:%M:%S', errors='coerce').dropna()
-                if len(times) >= 2:
-                    duration = times.max() - times.min()
-                    total_mins = int(duration.total_seconds() / 60)
-                    if total_mins >= 60:
-                        hours = total_mins // 60
-                        mins = total_mins % 60
-                        duration_str = f"{hours}h {mins}min"
-                    else:
-                        duration_str = f"{total_mins} min"
+            if 'time' in df.columns and 'date' in df.columns:
+                timestamps = pd.to_datetime(
+                    df['date'].astype(str) + ' ' + df['time'].astype(str),
+                    errors='coerce',
+                ).dropna()
+            elif 'time' in df.columns:
+                timestamps = pd.to_datetime(df['time'], errors='coerce').dropna()
+            else:
+                timestamps = pd.Series(dtype='datetime64[ns]')
+            if len(timestamps) >= 2:
+                duration = timestamps.max() - timestamps.min()
+                total_mins = int(duration.total_seconds() / 60)
+                if total_mins >= 60:
+                    hours = total_mins // 60
+                    mins = total_mins % 60
+                    duration_str = f"{hours}h {mins}min"
+                else:
+                    duration_str = f"{total_mins} min"
         except Exception:
             pass
         
@@ -508,7 +515,7 @@ class SessionExporter:
         columns_to_exclude = ['date', 'time', 'onset', 'block_id', 'session_ID', 'is_initial', 'electrode_model']
         display_columns = [col for col in lateral_df.columns if col not in columns_to_exclude]
 
-        lateral_cols = ['laterality', 'frequency', 'cathode', 'anode', 'amplitude', 'pulse_width']
+        lateral_cols = ['laterality', 'frequency', 'anode', 'cathode', 'amplitude', 'pulse_width']
         common_cols = ['group_ID', 'scale_name', 'scale_value', 'notes']
 
         lateral_cols = [col for col in lateral_cols if col in display_columns]
@@ -527,9 +534,9 @@ class SessionExporter:
             'laterality': 0.30,
             'group_ID': 0.40,
             'frequency': 0.50,
-            'cathode': 0.50,
-            'anode': 0.50,
-            'amplitude': 0.50,
+            'anode': 0.45,
+            'cathode': 0.60,
+            'amplitude': 0.60,
             'pulse_width': 0.50,
             'scale_name': 1.10,
             'scale_value': 0.60,
@@ -590,6 +597,21 @@ class SessionExporter:
                     raw_sv = row.get('scale_value', '')
                     sn_text = str(raw_sn) if pd.notna(raw_sn) else ''
                     sv_text = str(raw_sv) if pd.notna(raw_sv) else ''
+                    
+                    # Filter out NaN scales from display - remove both name and value
+                    if sv_text == 'NaN' or 'NaN' in sv_text:
+                        sn_parts = [s for s in sn_text.split('\n') if s.strip()]
+                        sv_parts = [s for s in sv_text.split('\n') if s.strip()]
+                        # Remove corresponding name-value pairs where value is NaN
+                        filtered_names = []
+                        filtered_values = []
+                        for name, val in zip(sn_parts, sv_parts):
+                            if val != 'NaN' and val.strip() != 'NaN':
+                                filtered_names.append(name)
+                                filtered_values.append(val)
+                        sn_text = '\n'.join(filtered_names)
+                        sv_text = '\n'.join(filtered_values)
+                    
                     scale_name_lines = sn_text.split('\n') if sn_text else ['']
                     scale_value_lines = sv_text.split('\n') if sv_text else ['']
                     max_len = max(len(scale_name_lines), len(scale_value_lines))
@@ -630,6 +652,21 @@ class SessionExporter:
                         target_cell.text = "\n".join(scale_value_lines)
                     else:
                         target_cell.text = cell_value
+                elif col == 'cathode' and '_' in cell_value:
+                    # Multi-contact cathode: show stacked with Total label
+                    contacts = cell_value.replace('_', '\n')
+                    row_cells[j].text = contacts + '\nTotal'
+                elif col == 'amplitude' and '_' in cell_value:
+                    # Multi-contact amplitude: show stacked values with total
+                    parts = cell_value.split('_')
+                    try:
+                        # Validate all parts are numbers and calculate total
+                        values = [float(p) for p in parts]
+                        total = sum(values)
+                        total_str = f"{total:.2f}".rstrip('0').rstrip('.')
+                        row_cells[j].text = '\n'.join(parts) + f'\n{total_str}'
+                    except (ValueError, TypeError):
+                        row_cells[j].text = cell_value
                 else:
                     row_cells[j].text = cell_value
 
@@ -673,12 +710,10 @@ class SessionExporter:
                     name, smin, smax, mode, custom_val = pref
                     if mode == "ignore":
                         continue
-                    elif mode == "low":
-                        target_num = smin if smin is not None and smin != '' else 0
-                        target_parts.append(f"{name}: {target_num}")
-                    elif mode == "high":
-                        target_num = smax if smax is not None and smax != '' else ''
-                        target_parts.append(f"{name}: {target_num}")
+                    elif mode == "min":
+                        target_parts.append(f"{name}: min")
+                    elif mode == "max":
+                        target_parts.append(f"{name}: max")
                     elif mode == "custom":
                         target_parts.append(f"{name}: {custom_val}")
             if target_parts:
@@ -689,10 +724,10 @@ class SessionExporter:
         # Clinical disclaimer
         disclaimer_para = doc.add_paragraph()
         disclaimer_run = disclaimer_para.add_run(
-            "Note: The highlighted rows are derived exclusively from the recorded session scale values "
-            "and represent a computational ranking intended solely as a reference. This color-coded "
-            "indication does not constitute clinical guidance, and final treatment decisions must be "
-            "made by the treating physician based on comprehensive clinical assessment."
+            "Note: The highlighted rows are derived exclusively from the recorded "
+            "session scale values and represent a computational ranking intended "
+            "solely as a reference. This color-coded indication does not constitute "
+            "clinical guidance."
         )
         disclaimer_run.font.size = Pt(9)
         disclaimer_run.font.italic = True
@@ -878,17 +913,17 @@ class SessionExporter:
 
                     # Get the corresponding scale name
                     scale_name = names[i].strip().lower() if i < len(names) else ""
-                    mode, custom_val = pref_lookup.get(scale_name, ("low", ""))
+                    mode, custom_val = pref_lookup.get(scale_name, ("min", ""))
 
                     if mode == "ignore":
                         continue  # Skip this scale
 
                     has_value = True
 
-                    if mode == "low":
+                    if mode in ("low", "min"):
                         # Lower is better - use value directly as score (lower = better)
                         total_score += val
-                    elif mode == "high":
+                    elif mode in ("high", "max"):
                         # Higher is better - negate so lower score = better
                         total_score -= val
                     elif mode == "custom":
@@ -1224,7 +1259,7 @@ class SessionExporter:
             except Exception:
                 pass
 
-    def export_to_pdf(self, parent: Optional[QWidget] = None) -> bool:
+    def export_to_pdf(self, parent: Optional[QWidget] = None, sections=None) -> bool:
         """Export session data to PDF by generating a Word report and converting it."""
         try:
             if not self.session_data.is_file_open():
@@ -1256,7 +1291,7 @@ class SessionExporter:
 
             docx_path = os.path.splitext(pdf_path)[0] + "_tmp.docx"
 
-            ok = self._export_to_word_path(docx_path)
+            ok = self._export_to_word_path(docx_path, sections=sections)
             if not ok:
                 return False
 
@@ -1284,12 +1319,13 @@ class SessionExporter:
             )
             return False
     
-    def export_to_word(self, parent: Optional[QWidget] = None) -> bool:
+    def export_to_word(self, parent: Optional[QWidget] = None, sections=None) -> bool:
         """
         Export session data to Word format.
         
         Args:
             parent: Parent widget for dialog display
+            sections: List of section keys to include
             
         Returns:
             True if export was successful, False otherwise
@@ -1327,7 +1363,7 @@ class SessionExporter:
             if not file_path.endswith('.docx'):
                 file_path += '.docx'
 
-            ok = self._export_to_word_path(file_path)
+            ok = self._export_to_word_path(file_path, sections=sections)
             if not ok:
                 QMessageBox.warning(
                     parent,
@@ -1352,7 +1388,7 @@ class SessionExporter:
             )
             return False
 
-    def _export_to_word_path(self, file_path: str) -> bool:
+    def _export_to_word_path(self, file_path: str, sections=None) -> bool:
         """Generate the Word report at an explicit path (used also by PDF export)."""
         df = self._read_session_data()
         if df is None or df.empty:
@@ -1388,23 +1424,25 @@ class SessionExporter:
                 info_parts.append(f'Session: {session_num}')
             doc.add_paragraph('    '.join(info_parts))
 
-        doc.add_paragraph('')
+        # Determine which sections to include (default: all)
+        all_keys = ["initial_notes", "session_data", "electrode_config", "programming_summary"]
+        active = set(sections) if sections is not None else set(all_keys)
 
-        self._add_summary_section(doc, df, df_initial, df_table)
+        if "initial_notes" in active:
+            doc.add_paragraph('')
+            self._add_summary_section(doc, df, df_initial, df_table)
 
-        doc.add_paragraph('')
+        if "session_data" in active:
+            doc.add_paragraph('')
+            self._add_session_data_table(doc, df_table)
 
-        self._add_session_data_table(doc, df_table)
+        if "electrode_config" in active:
+            doc.add_paragraph('')
+            self._add_electrode_config_section(doc, df, df_initial)
 
-        doc.add_paragraph('')
-
-        # Electrode drawings: only last initial + last final (overall) configuration
-        self._add_electrode_config_section(doc, df, df_initial)
-
-        doc.add_paragraph('')
-
-        # Programming Summary section
-        self._add_programming_summary(doc, df, df_initial, df_table)
+        if "programming_summary" in active:
+            doc.add_paragraph('')
+            self._add_programming_summary(doc, df, df_initial, df_table)
 
         doc.save(file_path)
         return True

@@ -225,16 +225,19 @@ class WizardController:
                 clinical_scales.append(ClinicalScale(name=name, value=score))
 
         # Collect stimulation parameters
+        # Use split amplitude text when multiple cathodes are active
+        left_amp_text = view.left_amp_split.get_amplitude_text() if hasattr(view, 'left_amp_split') else view.left_amp_edit.text()
+        right_amp_text = view.right_amp_split.get_amplitude_text() if hasattr(view, 'right_amp_split') else view.right_amp_edit.text()
         stimulation = StimulationParameters(
             left_frequency=view.left_stim_freq_edit.text(),
             left_cathode=view.get_left_cathode_text(),
             left_anode=view.get_left_anode_text(),
-            left_amplitude=view.left_amp_edit.text(),
+            left_amplitude=left_amp_text,
             left_pulse_width=view.left_pw_edit.text(),
             right_frequency=view.right_stim_freq_edit.text(),
             right_cathode=view.get_right_cathode_text(),
             right_anode=view.get_right_anode_text(),
-            right_amplitude=view.right_amp_edit.text(),
+            right_amplitude=right_amp_text,
             right_pulse_width=view.right_pw_edit.text(),
         )
 
@@ -293,12 +296,6 @@ class WizardController:
                 self.session_scales_names.append(name)
                 self.session_scales_data.append((name, min_val, max_val))
 
-        # Collect optimization preferences
-        if hasattr(view, "get_scale_optimization_prefs"):
-            self.scale_optimization_prefs = view.get_scale_optimization_prefs()
-        else:
-            self.scale_optimization_prefs = []
-
         return True
 
     def prepare_step3(self, view) -> None:
@@ -355,7 +352,10 @@ class WizardController:
         for name, value_widget in view.session_scale_value_edits:
             scale_value = ""
 
-            if hasattr(value_widget, "value") and callable(getattr(value_widget, "value")):
+            # Check if widget is disabled (X button clicked)
+            if hasattr(value_widget, "isDisabled") and value_widget.isDisabled():
+                scale_value = "NaN"
+            elif hasattr(value_widget, "value") and callable(getattr(value_widget, "value")):
                 try:
                     scale_value = f"{float(value_widget.value()) / 4.0:.2f}"
                 except Exception:
@@ -366,16 +366,19 @@ class WizardController:
                 session_scales.append(scale)
 
         # Collect current stimulation parameters
+        # Use split amplitude text when multiple cathodes are active
+        left_amp_text = view.left_amp_split.get_amplitude_text() if hasattr(view, 'left_amp_split') else view.session_left_amp_edit.text()
+        right_amp_text = view.right_amp_split.get_amplitude_text() if hasattr(view, 'right_amp_split') else view.session_right_amp_edit.text()
         stimulation = StimulationParameters(
             left_frequency=view.session_left_stim_freq_edit.text(),
             left_cathode=view.get_left_cathode_text(),
             left_anode=view.get_left_anode_text(),
-            left_amplitude=view.session_left_amp_edit.text(),
+            left_amplitude=left_amp_text,
             left_pulse_width=view.session_left_pw_edit.text(),
             right_frequency=view.session_right_stim_freq_edit.text(),
             right_cathode=view.get_right_cathode_text(),
             right_anode=view.get_right_anode_text(),
-            right_amplitude=view.session_right_amp_edit.text(),
+            right_amplitude=right_amp_text,
             right_pulse_width=view.session_right_pw_edit.text(),
         )
 
@@ -407,27 +410,29 @@ class WizardController:
         )
         parent.close()
 
-    def export_session_word(self, parent) -> None:
+    def export_session_word(self, parent, scale_prefs=None, sections=None) -> None:
         """
         Export current session data to Word format.
         
         Args:
             parent: The parent widget for dialogs
+            scale_prefs: Scale optimization prefs from the dialog
+            sections: List of section keys to include
         """
-        # Pass scale optimization preferences to exporter
-        self.session_exporter.set_scale_optimization_prefs(self.scale_optimization_prefs)
-        self.session_exporter.export_to_word(parent)
+        self.session_exporter.set_scale_optimization_prefs(scale_prefs or [])
+        self.session_exporter.export_to_word(parent, sections=sections)
 
-    def export_session_pdf(self, parent) -> None:
+    def export_session_pdf(self, parent, scale_prefs=None, sections=None) -> None:
         """
         Export current session data to PDF format.
         
         Args:
             parent: The parent widget for dialogs
+            scale_prefs: Scale optimization prefs from the dialog
+            sections: List of section keys to include
         """
-        # Pass scale optimization preferences to exporter
-        self.session_exporter.set_scale_optimization_prefs(self.scale_optimization_prefs)
-        self.session_exporter.export_to_pdf(parent)
+        self.session_exporter.set_scale_optimization_prefs(scale_prefs or [])
+        self.session_exporter.export_to_pdf(parent, sections=sections)
 
     # ============================================
     # Annotations-Only Workflow Methods
@@ -535,3 +540,34 @@ class WizardController:
     def export_annotations_pdf(self, parent) -> None:
         """Export annotations-only TSV to a simple PDF report (if available)."""
         self.session_exporter.export_annotations_to_pdf(parent)
+
+    # ============================================
+    # Longitudinal Workflow Methods
+    # ============================================
+
+    def export_longitudinal_report(
+        self,
+        file_paths: list,
+        scale_prefs: list,
+        fmt: str,
+        parent_widget=None,
+        sections=None,
+    ) -> None:
+        """
+        Generate a longitudinal report combining data from multiple TSV files.
+
+        Args:
+            file_paths: List of TSV file paths to combine
+            scale_prefs: Scale optimization prefs [(name, min, max, mode, custom_value), ...]
+            fmt: "word" or "pdf"
+            parent_widget: Parent widget for dialogs
+        """
+        from ..utils.longitudinal_exporter import LongitudinalExporter
+
+        exporter = LongitudinalExporter()
+        exporter.set_scale_optimization_prefs(scale_prefs)
+
+        if fmt == "word":
+            exporter.export_to_word(file_paths, parent_widget, sections=sections)
+        else:
+            exporter.export_to_pdf(file_paths, parent_widget, sections=sections)

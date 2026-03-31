@@ -60,9 +60,9 @@ class ElectrodeCanvas(QWidget):
         
     def _is_contact_directional(self, contact_idx: int) -> bool:
         """Return True if the given contact index is a segmented (directional) contact."""
-        if not self.model or not self.model.is_directional:
+        if not self.model:
             return False
-        return 0 < contact_idx < self.model.num_contacts - 1
+        return self.model.is_level_directional(contact_idx)
         
     def calculate_scale(self):
         """Calculate optimal scale to fit electrode in canvas based on height only"""
@@ -317,8 +317,13 @@ class ElectrodeCanvas(QWidget):
         for i in range(self.model.num_contacts - 1):  # All contacts except E0
             e0_y_position += contact_height_px + (self.model.contact_spacing + 1.0) * scale
         
-        # Lead should end just below E0 (0.3mm tail - minimal overhang)
-        total_height = e0_y_position + contact_height_px + 0.3 * scale - start_y
+        # Lead body end position depends on electrode type
+        if getattr(self.model, 'tip_contact', False):
+            # Boston Scientific: lead ends at top of E0 (the tip IS a contact)
+            total_height = e0_y_position - start_y
+        else:
+            # Medtronic/Abbott: lead extends slightly below E0 (0.3mm tail)
+            total_height = e0_y_position + contact_height_px + 0.3 * scale - start_y
         
         # Create linear gradient for cylindrical effect (no spotlight)
         lead_gradient = QLinearGradient(
@@ -334,14 +339,36 @@ class ElectrodeCanvas(QWidget):
         
         painter.setBrush(QBrush(lead_gradient))
         painter.setPen(QPen(palette.color(QPalette.Dark), 2))
-        painter.drawRoundedRect(
-            int(center_x - lead_width/2),
-            int(start_y),
-            int(lead_width),
-            int(total_height),
-            int(lead_width/4),
-            int(lead_width/4)
-        )
+        
+        if getattr(self.model, 'tip_contact', False):
+            # Boston Scientific: flat bottom so lead seamlessly meets the tip contact
+            corner = lead_width / 4
+            lead_body_path = QPainterPath()
+            lead_body_path.moveTo(center_x - lead_width/2, start_y + corner)
+            lead_body_path.arcTo(
+                center_x - lead_width/2, start_y,
+                corner * 2, corner * 2,
+                180, -90
+            )
+            lead_body_path.lineTo(center_x + lead_width/2 - corner, start_y)
+            lead_body_path.arcTo(
+                center_x + lead_width/2 - corner * 2, start_y,
+                corner * 2, corner * 2,
+                90, -90
+            )
+            lead_body_path.lineTo(center_x + lead_width/2, start_y + total_height)
+            lead_body_path.lineTo(center_x - lead_width/2, start_y + total_height)
+            lead_body_path.closeSubpath()
+            painter.drawPath(lead_body_path)
+        else:
+            painter.drawRoundedRect(
+                int(center_x - lead_width/2),
+                int(start_y),
+                int(lead_width),
+                int(total_height),
+                int(lead_width/4),
+                int(lead_width/4)
+            )
 
         # Add ambient occlusion (subtle shadows on edges)
         shadow_left = QLinearGradient(
@@ -518,7 +545,7 @@ class ElectrodeCanvas(QWidget):
                     ring_cap_height
                 )
                 self.ring_rects[contact_idx] = ring_cap_rect  # Update with corrected position
-                
+            
             else:
                 # Standard electrode without segments (also used for first/last contacts in directional leads)
                 contact_id = (contact_idx, 0)
@@ -532,6 +559,9 @@ class ElectrodeCanvas(QWidget):
                 
                 painter.setBrush(QBrush(color))
                 painter.setPen(QPen(border_color, border_width))
+                
+                # Check if this is the tip contact (E0 on Boston Scientific)
+                is_tip = (contact_idx == 0 and getattr(self.model, 'tip_contact', False))
                 
                 # Draw contact with cylindrical gradient
                 rect = QRectF(
@@ -552,38 +582,91 @@ class ElectrodeCanvas(QWidget):
                 contact_gradient.setColorAt(0.85, color.darker(110))
                 contact_gradient.setColorAt(1, color.darker(130))
                 
-                # Draw shadow
-                shadow_rect = QRectF(rect)
-                shadow_rect.translate(0, 2)
-                painter.setBrush(QColor(0, 0, 0, 20))
-                painter.setPen(Qt.NoPen)
-                painter.drawRoundedRect(shadow_rect, 3, 3)
-                
-                # Draw contact
-                painter.setBrush(QBrush(contact_gradient))
-                painter.setPen(QPen(border_color, border_width))
-                painter.drawRoundedRect(rect, 3, 3)
-                
-                # Add specular highlight for metallic appearance
-                if contact_state != ContactState.OFF:
-                    highlight_rect = QRectF(
-                        rect.left() + rect.width() * 0.15,
-                        rect.top() + 1,
-                        rect.width() * 0.3,
-                        rect.height() * 0.4
+                if is_tip:
+                    # Boston Scientific tip contact: flush with lead body + hemisphere bottom
+                    tip_left = center_x - lead_width / 2
+                    tip_right = center_x + lead_width / 2
+                    tip_width = tip_right - tip_left
+                    tip_radius = tip_width / 2
+                    
+                    tip_path = QPainterPath()
+                    tip_path.moveTo(tip_left, current_y)
+                    tip_path.lineTo(tip_right, current_y)
+                    tip_path.lineTo(tip_right, current_y + contact_height_px)
+                    arc_rect = QRectF(
+                        tip_left,
+                        current_y + contact_height_px - tip_radius,
+                        tip_width,
+                        tip_radius * 2
                     )
-                    painter.setBrush(QColor(255, 255, 255, 50))
+                    tip_path.arcTo(arc_rect, 0, -180)
+                    tip_path.lineTo(tip_left, current_y)
+                    
+                    tip_bounds = tip_path.boundingRect()
+                    contact_gradient_tip = QRadialGradient(
+                        tip_bounds.center().x(),
+                        tip_bounds.center().y(),
+                        tip_bounds.width() * 0.6
+                    )
+                    contact_gradient_tip.setColorAt(0, color.lighter(150))
+                    contact_gradient_tip.setColorAt(0.5, color.lighter(110))
+                    contact_gradient_tip.setColorAt(0.85, color.darker(110))
+                    contact_gradient_tip.setColorAt(1, color.darker(130))
+                    
+                    shadow_path = QPainterPath(tip_path)
+                    shadow_path.translate(0, 2)
+                    painter.setBrush(QColor(0, 0, 0, 20))
                     painter.setPen(Qt.NoPen)
-                    painter.drawRoundedRect(highlight_rect, 2, 2)
-                
-                # Store position
-                self.contact_rects[contact_id] = rect
-                path = QPainterPath()
-                path.addRoundedRect(rect, 3, 3)
-                # Expand clickable area for better UX
-                stroker = QPainterPathStroker()
-                stroker.setWidth(max(10.0, scale * 0.9))
-                self.contact_hit_areas[contact_id] = stroker.createStroke(path).united(path)
+                    painter.drawPath(shadow_path)
+                    
+                    painter.setBrush(QBrush(contact_gradient_tip))
+                    painter.setPen(QPen(border_color, border_width))
+                    painter.drawPath(tip_path)
+                    
+                    if contact_state != ContactState.OFF:
+                        highlight_rect = QRectF(
+                            tip_left + tip_width * 0.15,
+                            current_y + 1,
+                            tip_width * 0.3,
+                            contact_height_px * 0.4
+                        )
+                        painter.setBrush(QColor(255, 255, 255, 50))
+                        painter.setPen(Qt.NoPen)
+                        painter.drawRoundedRect(highlight_rect, 2, 2)
+                    
+                    self.contact_rects[contact_id] = tip_bounds
+                    stroker = QPainterPathStroker()
+                    stroker.setWidth(max(10.0, scale * 0.9))
+                    self.contact_hit_areas[contact_id] = stroker.createStroke(tip_path).united(tip_path)
+                else:
+                    # Standard rectangular ring contact
+                    shadow_rect = QRectF(rect)
+                    shadow_rect.translate(0, 2)
+                    painter.setBrush(QColor(0, 0, 0, 20))
+                    painter.setPen(Qt.NoPen)
+                    painter.drawRoundedRect(shadow_rect, 3, 3)
+                    
+                    painter.setBrush(QBrush(contact_gradient))
+                    painter.setPen(QPen(border_color, border_width))
+                    painter.drawRoundedRect(rect, 3, 3)
+                    
+                    if contact_state != ContactState.OFF:
+                        highlight_rect = QRectF(
+                            rect.left() + rect.width() * 0.15,
+                            rect.top() + 1,
+                            rect.width() * 0.3,
+                            rect.height() * 0.4
+                        )
+                        painter.setBrush(QColor(255, 255, 255, 50))
+                        painter.setPen(Qt.NoPen)
+                        painter.drawRoundedRect(highlight_rect, 2, 2)
+                    
+                    self.contact_rects[contact_id] = rect
+                    path = QPainterPath()
+                    path.addRoundedRect(rect, 3, 3)
+                    stroker = QPainterPathStroker()
+                    stroker.setWidth(max(10.0, scale * 0.9))
+                    self.contact_hit_areas[contact_id] = stroker.createStroke(path).united(path)
             
             # Contact number on the left - smaller font in export mode
             painter.setPen(palette.color(QPalette.Text))

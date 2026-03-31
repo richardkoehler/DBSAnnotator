@@ -11,6 +11,7 @@ from .step1_view import Step1View
 from .step2_view import Step2View
 from .step3_view import Step3View
 from .annotations_simple_view import AnnotationsFileView, AnnotationsSessionView
+from .longitudinal_file_view import LongitudinalFileView
 from .wizard_window import WizardWindow
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "Step3View",
     "AnnotationsFileView",
     "AnnotationsSessionView",
+    "LongitudinalFileView",
     "WizardWindow",
 ]

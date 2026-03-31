@@ -230,6 +230,7 @@ class ScaleProgressWidget(QWidget):
         self._minimum = 0
         self._maximum = 40
         self._value = 0
+        self._disabled = False
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -277,8 +278,8 @@ class ScaleProgressWidget(QWidget):
         self.right_double_btn.clicked.connect(lambda: self._adjust_value(2))
 
         self.reset_btn = self._create_icon_button(self._create_x_icon(), 18, 18)
-        self.reset_btn.setToolTip("Reset to 0")
-        self.reset_btn.clicked.connect(lambda: self.setValue(0))
+        self.reset_btn.setToolTip("Disable/Enable")
+        self.reset_btn.clicked.connect(self._toggle_disabled)
 
         right_layout.addWidget(self.right_single_btn)
         right_layout.addWidget(self.right_double_btn)
@@ -377,11 +378,15 @@ class ScaleProgressWidget(QWidget):
 
     def _adjust_value(self, delta: int) -> None:
         """Increment or decrement the current value by *delta* steps."""
+        if self._disabled:
+            self.setDisabled(False)
         new_value = max(self._minimum, min(self._maximum, self._value + delta))
         self.setValue(new_value)
 
     def _update_value_from_position(self, x_position: int) -> None:
         """Map a pixel x-position on the bar to the corresponding value."""
+        if self._disabled:
+            self.setDisabled(False)
         rect = self.progress_bar.rect()
         if rect.width() > 0:
             relative_x = max(0, min(x_position, rect.width()))
@@ -391,9 +396,36 @@ class ScaleProgressWidget(QWidget):
     def _on_bar_value_changed(self, value: int) -> None:
         """Sync internal state and update the display label."""
         self._value = value
-        self.valueChanged.emit(value)
-        actual_value = value / 4.0
-        self.progress_bar.setFormat(f"{actual_value:.2f}")
+        if not self._disabled:
+            self.valueChanged.emit(value)
+        self._update_display()
+
+    def _update_display(self) -> None:
+        """Update the progress bar appearance based on disabled state."""
+        if self._disabled:
+            self.progress_bar.setFormat("")
+            self.progress_bar.setStyleSheet("""
+                QProgressBar {
+                    border: 1px solid #cccccc;
+                    border-radius: 3px;
+                    background-color: #f5f5f5;
+                }
+                QProgressBar::chunk {
+                    background-color: #e0e0e0;
+                }
+            """)
+        else:
+            actual_value = self._value / 4.0
+            self.progress_bar.setFormat(f"{actual_value:.2f}")
+            self.progress_bar.setStyleSheet("")
+
+    def _toggle_disabled(self) -> None:
+        """Toggle disabled state when X button is clicked."""
+        self._disabled = not self._disabled
+        self._update_display()
+        if not self._disabled:
+            # Re-enable and emit current value
+            self.valueChanged.emit(self._value)
 
     # Public API (mirrors old InteractiveProgressBar)
     def setMinimum(self, value: int) -> None:
@@ -429,3 +461,15 @@ class ScaleProgressWidget(QWidget):
     def value(self) -> int:
         """Return the current internal value."""
         return self._value
+
+    def isDisabled(self) -> bool:
+        """Return True if the widget is in disabled state."""
+        return self._disabled
+
+    def setDisabled(self, disabled: bool) -> None:
+        """Set the disabled state."""
+        if self._disabled != disabled:
+            self._disabled = disabled
+            self._update_display()
+            if not self._disabled:
+                self.valueChanged.emit(self._value)

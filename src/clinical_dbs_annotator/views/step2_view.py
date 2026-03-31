@@ -10,9 +10,8 @@ import os
 from typing import Callable, Dict, List, Tuple
 
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QFont, QPixmap, QIcon, QIntValidator, QDoubleValidator
+from PyQt5.QtGui import QFont, QPixmap, QIcon, QIntValidator
 from PyQt5.QtWidgets import (
-    QButtonGroup,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -51,9 +50,9 @@ class Step2View(BaseStepView):
         self.parent_style = parent_style
         self.session_presets: Dict[str, List[Tuple[str, str, str]]] = self._load_session_presets()
         self.preset_buttons: List[QPushButton] = []
-        # Each row: (name_edit, min_edit, max_edit, row_layout, best_if_group, custom_edit)
+        # Each row: (name_edit, min_edit, max_edit, row_layout, None, None)
         self.session_scales_rows: List[
-            Tuple[QLineEdit, QLineEdit, QLineEdit, QHBoxLayout, QButtonGroup, QLineEdit]
+            Tuple[QLineEdit, QLineEdit, QLineEdit, QHBoxLayout, None, None]
         ] = []
         self.active_preset_button: Optional[QPushButton] = None  # Track active preset
         self._setup_ui()
@@ -397,49 +396,23 @@ class Step2View(BaseStepView):
         self.on_remove_callback = on_remove_callback
         self._connect_preset_buttons()
 
-    def get_scale_optimization_prefs(self) -> List[Tuple[str, str, str, str, str]]:
+    def get_session_scales_data(self) -> List[Tuple[str, str, str]]:
         """
-        Get scale optimization preferences for each scale.
+        Get session scale definitions (name, min, max) for use by the
+        ScaleOptimizationDialog at export time.
 
         Returns:
-            List of (name, min, max, best_if_mode, custom_value) tuples
-            best_if_mode: "low", "high", "custom", or "ignore"
+            List of (name, min, max) tuples for scales that have all fields filled.
         """
-        prefs = []
+        scales = []
         for row_data in self.session_scales_rows:
-            name_edit, min_edit, max_edit, _, best_if_group, custom_edit = row_data
+            name_edit, min_edit, max_edit = row_data[0], row_data[1], row_data[2]
             name = name_edit.text().strip()
             min_val = min_edit.text().strip()
             max_val = max_edit.text().strip()
-
-            if not name or not min_val or not max_val:
-                continue
-
-            # Determine best_if mode
-            mode = "low"  # default
-            custom_value = ""
-            if best_if_group is not None:
-                checked_id = best_if_group.checkedId()
-                if checked_id == 0:
-                    mode = "low"
-                elif checked_id == 1:
-                    mode = "high"
-                elif checked_id == 2:
-                    mode = "custom"
-                    if custom_edit is not None:
-                        custom_value = custom_edit.text().strip()
-                        try:
-                            min_f = float(min_val)
-                            max_f = float(max_val)
-                            custom_edit.setValidator(QDoubleValidator(min_f, max_f, int(2)))
-                        except ValueError:
-                            pass
-                elif checked_id == 3:
-                    mode = "ignore"
-
-            prefs.append((name, min_val, max_val, mode, custom_value))
-
-        return prefs
+            if name and min_val and max_val:
+                scales.append((name, min_val, max_val))
+        return scales
 
     def _add_session_scale_row(
         self,
@@ -451,7 +424,7 @@ class Step2View(BaseStepView):
         on_add: Callable = None,
         on_remove: Callable = None,
     ) -> None:
-        """Add a single session scale row with 'Best if' options."""
+        """Add a single session scale row (name, min, max)."""
         row = QHBoxLayout()
 
         name_edit = QLineEdit()
@@ -493,64 +466,7 @@ class Step2View(BaseStepView):
         row.addWidget(scale2_edit)
         row.addWidget(btn)
 
-        # "Best if" options - only for actual scale rows (not the empty add row)
-        best_if_group = None
-        custom_edit = None
-        if with_minus and name:
-            row.addSpacing(15)
-            row.addWidget(QLabel("Best if:"))
-
-            best_if_group = QButtonGroup(self)
-            best_if_group.setExclusive(True)
-
-            btn_low = QPushButton("Low")
-            btn_low.setCheckable(True)
-            btn_low.setChecked(True)  # Default to "low"
-            btn_low.setMinimumWidth(55)
-            btn_low.setProperty("class", "best-if-btn")
-            btn_low.setToolTip("Lower values are better")
-            best_if_group.addButton(btn_low, 0)  # ID 0 = low
-
-            btn_high = QPushButton("High")
-            btn_high.setCheckable(True)
-            btn_high.setMinimumWidth(55)
-            btn_high.setProperty("class", "best-if-btn")
-            btn_high.setToolTip("Higher values are better")
-            best_if_group.addButton(btn_high, 1)  # ID 1 = high
-
-            btn_custom = QPushButton("Custom")
-            btn_custom.setCheckable(True)
-            btn_custom.setMinimumWidth(65)
-            btn_custom.setProperty("class", "best-if-btn")
-            btn_custom.setToolTip("Specify target value")
-            best_if_group.addButton(btn_custom, 2)  # ID 2 = custom
-
-            btn_ignore = QPushButton("Ignore")
-            btn_ignore.setCheckable(True)
-            btn_ignore.setMinimumWidth(60)
-            btn_ignore.setProperty("class", "best-if-btn")
-            btn_ignore.setToolTip("Do not consider this scale")
-            best_if_group.addButton(btn_ignore, 3)  # ID 3 = ignore
-
-            custom_edit = QLineEdit()
-            custom_edit.setPlaceholderText("target")
-            custom_edit.setMinimumWidth(55)
-            custom_edit.setMaximumWidth(60)
-            custom_edit.setVisible(False)
-            custom_edit.setValidator(QDoubleValidator())
-
-            def on_best_if_changed(button_id, ce=custom_edit):
-                ce.setVisible(button_id == 2)
-
-            best_if_group.idClicked.connect(on_best_if_changed)
-
-            row.addWidget(btn_low)
-            row.addWidget(btn_high)
-            row.addWidget(btn_custom)
-            row.addWidget(custom_edit)
-            row.addWidget(btn_ignore)
-
         row.addStretch(1)
 
         self.session_scales_container.addLayout(row)
-        self.session_scales_rows.append((name_edit, scale1_edit, scale2_edit, row, best_if_group, custom_edit))
+        self.session_scales_rows.append((name_edit, scale1_edit, scale2_edit, row, None, None))

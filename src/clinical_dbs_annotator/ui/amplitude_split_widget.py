@@ -1,0 +1,314 @@
+"""
+Amplitude split widget for per-cathode percentage distribution.
+
+When multiple cathode contacts are active, this widget shows editable
+percentage rows below the total amplitude field.  Each row displays the
+contact label, an editable percentage, and a read-only computed mA value.
+"""
+
+from typing import Dict, List, Tuple
+
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QDoubleValidator, QIntValidator
+from PyQt5.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ..config_electrode_models import ContactState
+
+
+class AmplitudeSplitWidget(QWidget):
+    """Dynamic per-cathode amplitude percentage rows.
+
+    Parameters
+    ----------
+    amp_edit : QLineEdit
+        The *total* amplitude field that this widget watches.
+    parent : QWidget, optional
+        Parent widget.
+    """
+
+    def __init__(self, amp_edit: QLineEdit, parent=None):
+        super().__init__(parent)
+        self._amp_edit = amp_edit
+        # contact_label -> percentage (float 0-100)
+        self._percentages: Dict[str, float] = {}
+        # ordered list of cathode labels currently displayed
+        self._cathode_labels: List[str] = []
+        # row widgets: label -> (row_widget, pct_edit, ma_label)
+        self._rows: Dict[str, Tuple[QWidget, QLineEdit, QLabel]] = {}
+
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(2)
+
+        # Listen to total-amplitude changes to refresh mA values
+        self._amp_edit.textChanged.connect(self._refresh_ma_values)
+
+        self.setVisible(False)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def update_cathodes(self, cathode_labels: List[str]) -> None:
+        """Rebuild the rows to match the current set of active cathodes.
+
+        Called by the parent view whenever the electrode canvas changes.
+
+        Parameters
+        ----------
+        cathode_labels : list[str]
+            Ordered list of cathode contact labels (e.g. ``["E1b", "E2a"]``).
+            Pass an empty list or a single-element list to hide the widget.
+        """
+        # Filter out "case" — CASE as cathode does not get a percentage row
+        cathode_labels = [lbl for lbl in cathode_labels if lbl.lower() != "case"]
+
+        if len(cathode_labels) <= 1:
+            # Single or no cathode → hide everything
+            self._clear_rows()
+            self._cathode_labels = []
+            self._percentages.clear()
+            self.setVisible(False)
+            return
+
+        # Determine which labels are new / removed
+        old_set = set(self._cathode_labels)
+        new_set = set(cathode_labels)
+
+        if new_set == old_set and cathode_labels == self._cathode_labels:
+            # No change
+            return
+
+        # Compute new default percentages
+        self._cathode_labels = list(cathode_labels)
+        self._redistribute_percentages()
+
+        # Rebuild UI rows
+        self._rebuild_rows()
+        self.setVisible(True)
+
+    def get_percentages(self) -> Dict[str, float]:
+        """Return {contact_label: percentage} mapping."""
+        return dict(self._percentages)
+
+    def get_amplitude_text(self) -> str:
+        """Return the amplitude string for TSV storage.
+
+        - Single or no cathode: returns the total amplitude as-is.
+        - Multiple cathodes: returns per-contact mA values joined with ``_``,
+          e.g. ``"1.5_1.0"``.
+        """
+        total_text = self._amp_edit.text().strip()
+        if len(self._cathode_labels) <= 1:
+            return total_text
+
+        try:
+            total_amp = float(total_text)
+        except (ValueError, TypeError):
+            return total_text
+
+        parts = []
+        for lbl in self._cathode_labels:
+            pct = self._percentages.get(lbl, 0.0)
+            ma = total_amp * pct / 100.0
+            # Format: remove trailing zeros but keep at least one decimal
+            formatted = f"{ma:.2f}".rstrip("0").rstrip(".")
+            parts.append(formatted)
+        return "_".join(parts)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _redistribute_percentages(self) -> None:
+        """Set equal-split defaults for all current cathodes."""
+        n = len(self._cathode_labels)
+        if n == 0:
+            self._percentages.clear()
+            return
+
+        base = round(100.0 / n, 1)
+        # Assign base to all but the last; last gets the remainder
+        for i, lbl in enumerate(self._cathode_labels):
+            if i < n - 1:
+                self._percentages[lbl] = base
+            else:
+                self._percentages[lbl] = round(100.0 - base * (n - 1), 1)
+
+    def _clear_rows(self) -> None:
+        """Remove all dynamic row widgets."""
+        for lbl in list(self._rows):
+            row_w, _, _ = self._rows.pop(lbl)
+            self._layout.removeWidget(row_w)
+            row_w.deleteLater()
+
+    def _rebuild_rows(self) -> None:
+        """Tear down and recreate all percentage rows."""
+        self._clear_rows()
+
+        for i, lbl in enumerate(self._cathode_labels):
+            row_w = QWidget()
+            row_layout = QHBoxLayout(row_w)
+            row_layout.setContentsMargins(20, 0, 0, 0)
+            row_layout.setSpacing(4)
+
+            # Contact label
+            name_lbl = QLabel(f"<b>{lbl}</b>")
+            name_lbl.setMinimumWidth(40)
+            row_layout.addWidget(name_lbl)
+
+            # Percentage edit
+            pct_edit = QLineEdit()
+            pct_edit.setMaximumWidth(55)
+            pct_edit.setAlignment(Qt.AlignRight)
+            pct_edit.setValidator(QDoubleValidator(0.0, 100.0, 1))
+            pct_edit.setText(f"{self._percentages.get(lbl, 0.0):g}")
+            row_layout.addWidget(pct_edit)
+
+            pct_label = QLabel("%")
+            row_layout.addWidget(pct_label)
+
+            arrow_lbl = QLabel("→")
+            row_layout.addWidget(arrow_lbl)
+
+            # Computed mA label (read-only)
+            ma_label = QLabel("")
+            ma_label.setMinimumWidth(60)
+            ma_label.setStyleSheet("color: #64748b;")
+            row_layout.addWidget(ma_label)
+
+            row_layout.addStretch(1)
+
+            is_last = (i == len(self._cathode_labels) - 1)
+
+            # Connect editing
+            if is_last:
+                pct_edit.setReadOnly(True)
+                pct_edit.setStyleSheet("background: transparent; border: none; color: #64748b;")
+            else:
+                pct_edit.editingFinished.connect(
+                    lambda lbl_=lbl: self._on_pct_edited(lbl_)
+                )
+                pct_edit.textChanged.connect(
+                    lambda _text, lbl_=lbl: self._on_pct_text_changed(lbl_)
+                )
+
+            self._rows[lbl] = (row_w, pct_edit, ma_label)
+            self._layout.addWidget(row_w)
+
+        self._refresh_ma_values()
+
+    def _on_pct_edited(self, edited_label: str) -> None:
+        """Called when user finishes editing a percentage field."""
+        self._read_and_rebalance(edited_label)
+
+    def _on_pct_text_changed(self, edited_label: str) -> None:
+        """Live update as the user types."""
+        self._read_and_rebalance(edited_label)
+
+    def _read_and_rebalance(self, edited_label: str) -> None:
+        """Read edited values, auto-complete the last cathode, refresh mA."""
+        n = len(self._cathode_labels)
+        if n < 2:
+            return
+
+        # Read all non-last values
+        total_others = 0.0
+        for lbl in self._cathode_labels[:-1]:
+            row_data = self._rows.get(lbl)
+            if not row_data:
+                continue
+            _, pct_edit, _ = row_data
+            try:
+                val = float(pct_edit.text())
+            except ValueError:
+                val = 0.0
+            val = max(0.0, min(100.0, val))
+            self._percentages[lbl] = val
+            total_others += val
+
+        # Clamp: if total_others > 100, scale them down proportionally
+        if total_others > 100.0 and total_others > 0:
+            scale = 100.0 / total_others
+            total_others = 0.0
+            for lbl in self._cathode_labels[:-1]:
+                self._percentages[lbl] = round(self._percentages[lbl] * scale, 1)
+                total_others += self._percentages[lbl]
+                row_data = self._rows.get(lbl)
+                if row_data:
+                    _, pct_edit, _ = row_data
+                    pct_edit.blockSignals(True)
+                    pct_edit.setText(f"{self._percentages[lbl]:g}")
+                    pct_edit.blockSignals(False)
+
+        # Last cathode gets the remainder
+        last_lbl = self._cathode_labels[-1]
+        remainder = round(max(0.0, 100.0 - total_others), 1)
+        self._percentages[last_lbl] = remainder
+        last_row = self._rows.get(last_lbl)
+        if last_row:
+            _, pct_edit, _ = last_row
+            pct_edit.blockSignals(True)
+            pct_edit.setText(f"{remainder:g}")
+            pct_edit.blockSignals(False)
+
+        self._refresh_ma_values()
+
+    def _refresh_ma_values(self) -> None:
+        """Recompute the mA labels from the total amplitude and percentages."""
+        try:
+            total_amp = float(self._amp_edit.text())
+        except (ValueError, TypeError):
+            total_amp = 0.0
+
+        for lbl in self._cathode_labels:
+            row_data = self._rows.get(lbl)
+            if not row_data:
+                continue
+            _, _, ma_label = row_data
+            pct = self._percentages.get(lbl, 0.0)
+            ma_val = total_amp * pct / 100.0
+            ma_label.setText(f"{ma_val:.2f} mA")
+
+
+def get_cathode_labels(canvas) -> List[str]:
+    """Extract ordered cathode contact labels from an ElectrodeCanvas.
+
+    Returns a list like ``["E1b", "E2a"]``.  ``"case"`` is included if the
+    case is cathodic (but the widget will filter it out).
+    """
+    model = canvas.model
+    if not model:
+        return []
+
+    labels: List[str] = []
+
+    if canvas.case_state == ContactState.CATHODIC:
+        labels.append("case")
+
+    if model.is_directional:
+        for contact_idx in range(model.num_contacts):
+            seg_states = [
+                canvas.contact_states.get((contact_idx, seg), ContactState.OFF)
+                for seg in range(3)
+            ]
+            if all(s == ContactState.CATHODIC for s in seg_states):
+                labels.append(f"E{contact_idx}")
+                continue
+            seg_labels = ["a", "b", "c"]
+            for seg, seg_state in enumerate(seg_states):
+                if seg_state == ContactState.CATHODIC:
+                    labels.append(f"E{contact_idx}{seg_labels[seg]}")
+    else:
+        for contact_idx in range(model.num_contacts):
+            state = canvas.contact_states.get((contact_idx, 0), ContactState.OFF)
+            if state == ContactState.CATHODIC:
+                labels.append(f"E{contact_idx}")
+
+    return labels

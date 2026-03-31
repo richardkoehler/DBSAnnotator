@@ -101,14 +101,26 @@ class StimulationRule:
 class ElectrodeModel:
     """Base class for electrode models"""
     def __init__(self, name, num_contacts, contact_height, contact_spacing, 
-                 lead_diameter, is_directional=False):
+                 lead_diameter, is_directional=False, tip_contact=False,
+                 directional_levels=None):
         self.name = name
         self.num_contacts = num_contacts
         self.contact_height = contact_height  # mm
         self.contact_spacing = contact_spacing  # mm
         self.lead_diameter = lead_diameter  # mm
         self.is_directional = is_directional
+        self.tip_contact = tip_contact  # True if the distal contact IS the tip (e.g. Boston Scientific)
         self.segments_per_level = 3 if is_directional else 1
+        self._directional_levels = directional_levels  # Optional: 0-indexed list of levels that are segmented
+
+    def is_level_directional(self, level_idx):
+        """Return True if the given level index has directional (segmented) contacts."""
+        if not self.is_directional:
+            return False
+        if self._directional_levels is not None:
+            return level_idx in self._directional_levels
+        # Default: all levels except first and last are directional
+        return 0 < level_idx < self.num_contacts - 1
 
 
 # ============================================================================
@@ -171,34 +183,41 @@ BOSTON_VERCISE = ElectrodeModel(
     contact_height=1.5,
     contact_spacing=0.5,
     lead_diameter=1.3,
-    is_directional=False
+    is_directional=False,
+    tip_contact=True
 )
 
 BOSTON_VERCISE_DIRECTED = ElectrodeModel(
     name='Boston Scientific Vercise Directed',
-    num_contacts=8,
+    num_contacts=4,
     contact_height=1.5,
     contact_spacing=0.5,
     lead_diameter=1.3,
-    is_directional=True
+    is_directional=True,
+    tip_contact=True,
+    directional_levels=[1, 2]  # Ring(tip)-Seg×3-Seg×3-Ring = 8 contacts
 )
 
 BOSTON_VERCISE_CARTESIA_HX = ElectrodeModel(
     name='Boston Scientific Vercise Cartesia HX',
-    num_contacts=8,
+    num_contacts=6,
     contact_height=1.5,
     contact_spacing=1.5,
     lead_diameter=1.3,
-    is_directional=True
+    is_directional=True,
+    tip_contact=True,
+    directional_levels=[1, 2, 3, 4, 5]  # Ring(tip)+5×Seg×3 = 16 contacts
 )
 
 BOSTON_VERCISE_CARTESIA_X = ElectrodeModel(
     name='Boston Scientific Vercise Cartesia X',
-    num_contacts=8,
+    num_contacts=6,
     contact_height=1.5,
     contact_spacing=0.5,
     lead_diameter=1.3,
-    is_directional=True
+    is_directional=True,
+    tip_contact=True,
+    directional_levels=[1, 2, 3, 4, 5]  # Ring(tip)+5×Seg×3 = 16 contacts
 )
 
 # ============================================================================
@@ -227,17 +246,17 @@ ABBOTT_STJUDE_INFINITY_6172 = ElectrodeModel(
     name='Abbott StJude 6172',
     num_contacts=4,
     contact_height=1.5,
-    contact_spacing=1.5,
-    lead_diameter=1.27,
+    contact_spacing=0.5,
+    lead_diameter=1.29,
     is_directional=True
 )
 
 ABBOTT_STJUDE_INFINITY_6173 = ElectrodeModel(
     name='Abbott StJude 6173',
     num_contacts=4,
-    contact_height=3.0,
-    contact_spacing=4.0,
-    lead_diameter=1.27,
+    contact_height=1.5,
+    contact_spacing=1.5,
+    lead_diameter=1.29,
     is_directional=True
 )
 
@@ -305,11 +324,12 @@ PINS_L303 = ElectrodeModel(
 
 ALEVA_DIRECTSTIM = ElectrodeModel(
     name='ALEVA directSTIM',
-    num_contacts=8,
+    num_contacts=4,
     contact_height=1.5,
     contact_spacing=0.5,
     lead_diameter=1.27,
-    is_directional=True
+    is_directional=True,
+    directional_levels=[0, 1, 2, 3]  # ALL 4 levels segmented (3-3-3-3), no ring contacts = 12 contacts
 )
 
 # ============================================================================

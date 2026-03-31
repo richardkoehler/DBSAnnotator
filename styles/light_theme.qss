@@ -259,7 +259,7 @@ QPushButton[objectName^="preset_"][active="true"], QPushButton[objectName^="pres
 }
 
 /* Mode Selection Buttons - Large Cards */
-QPushButton#full_mode_button, QPushButton#annotations_only_button {
+QPushButton#full_mode_button, QPushButton#annotations_only_button, QPushButton#longitudinal_report_button {
     background-color: #ffffff;
     color: #0f172a;
     border: 2px solid #cbd5e1;
@@ -270,13 +270,13 @@ QPushButton#full_mode_button, QPushButton#annotations_only_button {
     text-align: center;
 }
 
-QPushButton#full_mode_button:hover, QPushButton#annotations_only_button:hover {
+QPushButton#full_mode_button:hover, QPushButton#annotations_only_button:hover, QPushButton#longitudinal_report_button:hover {
     background-color: #f1f5f9;
     border-color: #b45309;
     color: #b45309;
 }
 
-QPushButton#full_mode_button:pressed, QPushButton#annotations_only_button:pressed {
+QPushButton#full_mode_button:pressed, QPushButton#annotations_only_button:pressed, QPushButton#longitudinal_report_button:pressed {
     background-color: #e0e7ff;
     border-color: #1d4ed8;
     color: #1d4ed8;

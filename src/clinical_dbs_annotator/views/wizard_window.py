@@ -49,6 +49,7 @@ from .step1_view import Step1View
 from .step2_view import Step2View
 from .step3_view import Step3View
 from .annotations_simple_view import AnnotationsFileView, AnnotationsSessionView
+from .longitudinal_file_view import LongitudinalFileView
 
 
 class WizardWindow(QWidget):
@@ -175,6 +176,9 @@ class WizardWindow(QWidget):
         self.annotations_file_view = None
         self.annotations_session_view = None
 
+        # Longitudinal workflow view (lazy loaded)
+        self.longitudinal_file_view = None
+
         self.stack_scroll_area = QScrollArea(self)
         self.stack_scroll_area.setWidgetResizable(True)
         self.stack_scroll_area.setFrameShape(QFrame.NoFrame)
@@ -257,6 +261,8 @@ class WizardWindow(QWidget):
             return "Output File"
         if isinstance(current, AnnotationsSessionView):
             return "Session Annotations"
+        if isinstance(current, LongitudinalFileView):
+            return "Longitudinal Report"
         return ""
 
     def _update_header_title(self) -> None:
@@ -362,6 +368,7 @@ class WizardWindow(QWidget):
         """Connect Step 0 mode selection signals."""
         self.step0_view.full_mode_button.clicked.connect(self._select_full_mode)
         self.step0_view.annotations_only_button.clicked.connect(self._select_annotations_only_mode)
+        self.step0_view.longitudinal_report_button.clicked.connect(self._select_longitudinal_report)
 
     def _select_full_mode(self) -> None:
         """Handle selection of full workflow mode."""
@@ -380,6 +387,80 @@ class WizardWindow(QWidget):
         self.stack.setCurrentWidget(self.annotations_file_view)
         self._update_window_size_for_main_workflow()  # Resize to normal size
         self._update_ui_state()
+
+    def _select_longitudinal_report(self) -> None:
+        """Handle selection of longitudinal report mode."""
+        self.workflow_mode = "longitudinal"
+        self.current_step = 1
+        self._load_longitudinal_views()
+        self.stack.setCurrentWidget(self.longitudinal_file_view)
+        self._update_window_size_for_main_workflow()
+        self._update_ui_state()
+
+    def _load_longitudinal_views(self) -> None:
+        """Load longitudinal workflow views (lazy loading)."""
+        if self.longitudinal_file_view is None:
+            self.longitudinal_file_view = LongitudinalFileView(self)
+            self.stack.addWidget(self.longitudinal_file_view)
+            self._connect_longitudinal_signals()
+
+    def _connect_longitudinal_signals(self) -> None:
+        """Connect signals for the longitudinal file view."""
+        self.longitudinal_file_view.export_word_action.triggered.connect(
+            lambda: self._export_longitudinal_report("word")
+        )
+        self.longitudinal_file_view.export_pdf_action.triggered.connect(
+            lambda: self._export_longitudinal_report("pdf")
+        )
+
+    def _export_longitudinal_report(self, fmt: str) -> None:
+        """Handle longitudinal report export (Word or PDF)."""
+        files = self.longitudinal_file_view.get_loaded_files()
+        if not files:
+            QMessageBox.warning(
+                self, "No Files",
+                "Please load at least one annotation file before creating a report.",
+            )
+            return
+
+        # Extract session scales from all files
+        scales = LongitudinalFileView.extract_session_scales_from_files(files)
+        if not scales:
+            QMessageBox.warning(
+                self, "No Session Scales",
+                "No session scales (is_initial=0) were found in the loaded files.\n"
+                "The report cannot determine the best entry without scale data.",
+            )
+            return
+
+        # Show scale optimization dialog
+        from .longitudinal_scale_dialog import LongitudinalScaleDialog, ReportSectionsDialog
+        dialog = LongitudinalScaleDialog(scales, self)
+        if dialog.exec_() != dialog.Accepted:
+            return
+
+        prefs = dialog.get_scale_prefs()
+
+        # Show section selection dialog
+        section_defs = [
+            ("sessions_overview", "Sessions Overview", True),
+            ("session_data", "Session Data", True),
+            ("electrode_config", "Electrode Configuration", False),
+            ("programming_summary", "Programming Summary", False),
+        ]
+        sec_dialog = ReportSectionsDialog(section_defs, self, title="Report Sections")
+        if sec_dialog.exec_() != sec_dialog.Accepted:
+            return
+        sections = sec_dialog.get_selected_sections()
+
+        # Generate report
+        self.controller.export_longitudinal_report(
+            file_paths=files,
+            scale_prefs=prefs,
+            fmt=fmt,
+            parent_widget=self,
+            sections=sections,
+        )
 
     def _load_full_workflow_views(self) -> None:
         """Load full workflow views (lazy loading)."""
@@ -417,8 +498,8 @@ class WizardWindow(QWidget):
 
     def _update_window_size_for_step0(self) -> None:
         """Set smaller window size for mode selection (step 0)."""
-        compact_width = 600
-        compact_height = 250
+        compact_width = 620
+        compact_height = 520
 
         # Reset constraints first to avoid min/max conflicts with previous size
         self.setMinimumSize(1, 1)
@@ -554,11 +635,50 @@ class WizardWindow(QWidget):
             lambda: self.controller.close_session(self)
         )
         self.step3_view.export_word_action.triggered.connect(
-            lambda: self.controller.export_session_word(self)
+            lambda: self._export_session_report("word")
         )
         self.step3_view.export_pdf_action.triggered.connect(
-            lambda: self.controller.export_session_pdf(self)
+            lambda: self._export_session_report("pdf")
         )
+
+    def _export_session_report(self, fmt: str) -> None:
+        """Show scale optimization dialog then export Step 3 session report."""
+        # Collect scale definitions from the controller
+        scales = list(getattr(self.controller, "session_scales_data", []))
+        if not scales:
+            # No scales defined — export without optimization
+            if fmt == "word":
+                self.controller.export_session_word(self)
+            else:
+                self.controller.export_session_pdf(self)
+            return
+
+        from .longitudinal_scale_dialog import ScaleOptimizationDialog
+        dialog = ScaleOptimizationDialog(
+            scales, self, title="Scale Optimization — Session Report"
+        )
+        if dialog.exec_() != dialog.Accepted:
+            return
+
+        prefs = dialog.get_scale_prefs()
+
+        # Show section selection dialog
+        from .longitudinal_scale_dialog import ReportSectionsDialog
+        section_defs = [
+            ("initial_notes", "Initial Clinical Notes", True),
+            ("session_data", "Session Data", True),
+            ("electrode_config", "Electrode Configurations", True),
+            ("programming_summary", "Programming Summary", True),
+        ]
+        sec_dialog = ReportSectionsDialog(section_defs, self, title="Report Sections")
+        if sec_dialog.exec_() != sec_dialog.Accepted:
+            return
+        sections = sec_dialog.get_selected_sections()
+
+        if fmt == "word":
+            self.controller.export_session_word(self, scale_prefs=prefs, sections=sections)
+        else:
+            self.controller.export_session_pdf(self, scale_prefs=prefs, sections=sections)
 
     def _create_nav_bar(self) -> QHBoxLayout:
         """
@@ -749,6 +869,8 @@ class WizardWindow(QWidget):
             elif self.workflow_mode == "annotations_only":
                 if self.current_step == 1 and self.annotations_file_view:
                     self.stack.setCurrentWidget(self.annotations_file_view)
+            elif self.workflow_mode == "longitudinal":
+                pass  # Step 0 already handled above
 
             self._update_ui_state()
 

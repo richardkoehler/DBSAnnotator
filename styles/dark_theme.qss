@@ -210,7 +210,7 @@ QPushButton[objectName^="preset_"][active="true"], QPushButton[objectName^="pres
 }
 
 /* Mode Selection Buttons - preserved original sizing & text, enhanced style (3D, glossy, hover, pressed) */
-QPushButton#full_mode_button, QPushButton#annotations_only_button {
+QPushButton#full_mode_button, QPushButton#annotations_only_button, QPushButton#longitudinal_report_button {
     /* mantenuto come nell'originale: dimensione percepita basata su padding */
     padding: 20px;
     font-size: 14px;
@@ -236,7 +236,7 @@ QPushButton#full_mode_button, QPushButton#annotations_only_button {
 }
 
 /* Hover: leggermente più chiaro con bordo d'accento */
-QPushButton#full_mode_button:hover, QPushButton#annotations_only_button:hover {
+QPushButton#full_mode_button:hover, QPushButton#annotations_only_button:hover, QPushButton#longitudinal_report_button:hover {
     background: qlineargradient(
         x1: 0, y1: 0, x2: 0, y2: 1,
         stop: 0 rgba(255,255,255,0.09),
@@ -249,7 +249,7 @@ QPushButton#full_mode_button:hover, QPushButton#annotations_only_button:hover {
 }
 
 /* Pressed: più scuro, effetto 'premuto' */
-QPushButton#full_mode_button:pressed, QPushButton#annotations_only_button:pressed {
+QPushButton#full_mode_button:pressed, QPushButton#annotations_only_button:pressed, QPushButton#longitudinal_report_button:pressed {
     background: qlineargradient(
         x1: 0, y1: 0, x2: 0, y2: 1,
         stop: 0 rgba(0,0,0,0.12),

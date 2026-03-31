@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QFormLayout,
     QGroupBox,
+    QScrollArea,
     QSizePolicy,
     QStyle,
     QTextEdit,
@@ -32,7 +33,7 @@ from ..config import (
     SESSION_SCALE_LIMITS,
     STIMULATION_LIMITS,
 )
-from ..ui import IncrementWidget, ScaleProgressWidget, create_horizontal_line
+from ..ui import IncrementWidget, ScaleProgressWidget, create_horizontal_line, AmplitudeSplitWidget, get_cathode_labels
 from .base_view import BaseStepView
 from ..models import ElectrodeCanvas
 from ..config_electrode_models import ContactState, StimulationRule
@@ -91,7 +92,12 @@ class Step3View(BaseStepView):
 
         params_group = self._create_stimulation_params_group()
         params_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        left_container_layout.addWidget(params_group, 1)
+        params_scroll = QScrollArea()
+        params_scroll.setWidget(params_group)
+        params_scroll.setWidgetResizable(True)
+        params_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        params_scroll.setFrameShape(QFrame.NoFrame)
+        left_container_layout.addWidget(params_scroll, 1)
 
         electrodes_layout = QVBoxLayout()
         electrodes_row = QHBoxLayout()
@@ -233,8 +239,11 @@ class Step3View(BaseStepView):
         )
         pw_row.addWidget(left_pw_widget)
 
+        self.left_amp_split = AmplitudeSplitWidget(self.session_left_amp_edit)
+
         left_group_layout.addLayout(freq_row)
         left_group_layout.addLayout(amp_row)
+        left_group_layout.addWidget(self.left_amp_split)
         left_group_layout.addLayout(pw_row)
 
         self.left_config_box = QFrame()
@@ -307,8 +316,11 @@ class Step3View(BaseStepView):
         )
         pw_row.addWidget(right_pw_widget)
 
+        self.right_amp_split = AmplitudeSplitWidget(self.session_right_amp_edit)
+
         right_group_layout.addLayout(freq_row)
         right_group_layout.addLayout(amp_row)
+        right_group_layout.addWidget(self.right_amp_split)
         right_group_layout.addLayout(pw_row)
 
         self.right_config_box = QFrame()
@@ -364,11 +376,15 @@ class Step3View(BaseStepView):
         """Callback when left electrode canvas validation state changes."""
         self._left_selection_valid = bool(is_valid)
         self.update_configuration_display()
+        if hasattr(self, "left_amp_split"):
+            self.left_amp_split.update_cathodes(get_cathode_labels(self.left_canvas))
 
     def _on_right_canvas_validation(self, is_valid: bool, error_msg: str) -> None:
         """Callback when right electrode canvas validation state changes."""
         self._right_selection_valid = bool(is_valid)
         self.update_configuration_display()
+        if hasattr(self, "right_amp_split"):
+            self.right_amp_split.update_cathodes(get_cathode_labels(self.right_canvas))
 
     def set_electrode_model(self, model) -> None:
         """Set the electrode model on both canvases and refresh display."""
@@ -631,11 +647,16 @@ class Step3View(BaseStepView):
             right_pw: Right pulse width
         """
         self.session_left_stim_freq_edit.setText(left_frequency)
-        self.session_left_amp_edit.setText(left_amp)
         self.session_left_pw_edit.setText(left_pw)
         self.session_right_stim_freq_edit.setText(right_frequency)
-        self.session_right_amp_edit.setText(right_amp)
         self.session_right_pw_edit.setText(right_pw)
+        
+        # Handle amplitude: if split (contains _), calculate total and set total in field
+        # The AmplitudeSplitWidget will handle distribution based on cathode contacts
+        left_total_amp = self._parse_amplitude_total(left_amp)
+        right_total_amp = self._parse_amplitude_total(right_amp)
+        self.session_left_amp_edit.setText(left_total_amp)
+        self.session_right_amp_edit.setText(right_total_amp)
 
         if hasattr(self, "_current_model") and self._current_model:
             self.set_electrode_model(self._current_model)
@@ -652,6 +673,24 @@ class Step3View(BaseStepView):
             self._apply_contact_text_to_canvas(self.right_canvas, right_anode, right_cathode)
 
         self.update_configuration_display()
+
+    def _parse_amplitude_total(self, amp_str: str) -> str:
+        """
+        Parse amplitude string and return the total value.
+        
+        If the string contains underscores (e.g., "1.5_1.0"), calculate the sum.
+        Otherwise, return the string as-is.
+        """
+        if not amp_str or "_" not in amp_str:
+            return amp_str
+        
+        try:
+            parts = amp_str.split("_")
+            total = sum(float(p) for p in parts)
+            # Format to 2 decimal places, removing trailing zeros
+            return f"{total:.2f}".rstrip("0").rstrip(".")
+        except (ValueError, TypeError):
+            return amp_str
 
     def _apply_contact_text_to_canvas(self, canvas: ElectrodeCanvas, anode_text: str, cathode_text: str) -> None:
         """Parse anode/cathode token strings and set the corresponding canvas states."""
@@ -726,3 +765,8 @@ class Step3View(BaseStepView):
             canvas.case_state = ContactState.OFF
 
         canvas.update()
+        # Refresh amplitude split widget for this canvas
+        if canvas is self.left_canvas and hasattr(self, "left_amp_split"):
+            self.left_amp_split.update_cathodes(get_cathode_labels(self.left_canvas))
+        elif canvas is self.right_canvas and hasattr(self, "right_amp_split"):
+            self.right_amp_split.update_cathodes(get_cathode_labels(self.right_canvas))
