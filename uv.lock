@@ -140,7 +140,6 @@ wheels = [
 
 [[package]]
 name = "clinical-dbs-annotator"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "docx2pdf" },

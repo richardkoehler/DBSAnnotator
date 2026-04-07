@@ -339,7 +339,6 @@ class WizardWindow(QWidget):
             <li>Session annotation and management</li>
             <li>Export functionality for clinical documentation</li>
         </ul>
-        
         <h3>Key Features</h3>
         <ul>
             <li><b>Electrode Modeling:</b> Support for various DBS lead models with directional contacts</li>
@@ -348,7 +347,6 @@ class WizardWindow(QWidget):
             <li><b>Session Management:</b> Track patient sessions over time with detailed annotations</li>
             <li><b>Export Capabilities:</b> Generate clinical reports in multiple formats</li>
         </ul>
-        
         <h3>Getting Started</h3>
         <ol>
             <li>Select your workflow mode (Full or Annotations Only)</li>

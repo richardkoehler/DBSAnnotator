@@ -1,13 +1,13 @@
 [project]
 name = "clinical-dbs-annotator"
-version = "0.1.0"
-description = "A PyQt5-based tool for annotating DBS clinical programming sessions"
+description = "A graphical user interface for annotating DBS clinical programming sessions"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 authors = [
     { name = "Lucia Poma", email = "lpoma@mgh.harvard.edu" }
 ]
 keywords = ["dbs", "clinical", "annotation", "neuroscience", "deep-brain-stimulation"]
+dynamic = ["version"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Healthcare Industry",
@@ -21,7 +21,6 @@ classifiers = [
     "Environment :: X11 Applications :: Qt",
     "Operating System :: OS Independent",
 ]
-
 dependencies = [
     "pyqt5",
     "pyqt5-qt5<=5.15.2",
@@ -63,6 +62,9 @@ Documentation = "https://github.com/bml/clinical-dbs-annotator/blob/main/README.
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/clinical_dbs_annotator/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/clinical_dbs_annotator"]
