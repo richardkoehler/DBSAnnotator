@@ -82,6 +82,10 @@ class Step1View(BaseStepView):
 
         self.left_canvas = ElectrodeCanvas()
         self.right_canvas = ElectrodeCanvas()
+
+        # Electrode disable state
+        self.left_electrode_enabled = True
+        self.right_electrode_enabled = True
         self.left_canvas.validation_callback = self._on_left_canvas_validation
         self.right_canvas.validation_callback = self._on_right_canvas_validation
         self._left_selection_valid = True
@@ -238,8 +242,8 @@ class Step1View(BaseStepView):
         amp_limits = STIMULATION_LIMITS["amplitude"]
         pw_limits = STIMULATION_LIMITS["pulse_width"]
 
-        left_group = QGroupBox("Left")
-        left_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.left_group = QGroupBox("Left")
+        self.left_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         left_group_layout = QVBoxLayout()
 
         freq_row = QHBoxLayout()
@@ -313,10 +317,10 @@ class Step1View(BaseStepView):
         left_config_layout.addWidget(self.left_config_label)
         left_group_layout.addWidget(self.left_config_box)
         left_group_layout.addStretch(1)
-        left_group.setLayout(left_group_layout)
+        self.left_group.setLayout(left_group_layout)
 
-        right_group = QGroupBox("Right")
-        right_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.right_group = QGroupBox("Right")
+        self.right_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         right_group_layout = QVBoxLayout()
 
         freq_row = QHBoxLayout()
@@ -390,12 +394,12 @@ class Step1View(BaseStepView):
         right_config_layout.addWidget(self.right_config_label)
         right_group_layout.addWidget(self.right_config_box)
         right_group_layout.addStretch(1)
-        right_group.setLayout(right_group_layout)
+        self.right_group.setLayout(right_group_layout)
 
         sidebar_layout.addWidget(model_group)
         sidebar_layout.addWidget(group_row)
-        sidebar_layout.addWidget(left_group)
-        sidebar_layout.addWidget(right_group)
+        sidebar_layout.addWidget(self.left_group)
+        sidebar_layout.addWidget(self.right_group)
         sidebar_layout.addStretch(1)
 
         # Wrap sidebar in a scroll area so it scrolls when rows overflow
@@ -427,18 +431,24 @@ class Step1View(BaseStepView):
         electrodes_layout = QVBoxLayout()
         electrodes_row = QHBoxLayout()
 
-        left_canvas_group = QGroupBox("Left electrode")
+        self.left_canvas_group = QGroupBox("Left electrode")
+        self.left_canvas_group.setCheckable(True)
+        self.left_canvas_group.setChecked(True)
+        self.left_canvas_group.toggled.connect(lambda checked: self._toggle_electrode('left', checked))
         left_canvas_layout = QVBoxLayout()
         left_canvas_layout.addWidget(self.left_canvas, 1)
-        left_canvas_group.setLayout(left_canvas_layout)
+        self.left_canvas_group.setLayout(left_canvas_layout)
 
-        right_canvas_group = QGroupBox("Right electrode")
+        self.right_canvas_group = QGroupBox("Right electrode")
+        self.right_canvas_group.setCheckable(True)
+        self.right_canvas_group.setChecked(True)
+        self.right_canvas_group.toggled.connect(lambda checked: self._toggle_electrode('right', checked))
         right_canvas_layout = QVBoxLayout()
         right_canvas_layout.addWidget(self.right_canvas, 1)
-        right_canvas_group.setLayout(right_canvas_layout)
+        self.right_canvas_group.setLayout(right_canvas_layout)
 
-        electrodes_row.addWidget(left_canvas_group, 1)
-        electrodes_row.addWidget(right_canvas_group, 1)
+        electrodes_row.addWidget(self.left_canvas_group, 1)
+        electrodes_row.addWidget(self.right_canvas_group, 1)
 
         electrodes_layout.addLayout(electrodes_row)
         electrodes_layout.addLayout(self._create_electrode_legend_layout())
@@ -877,6 +887,51 @@ class Step1View(BaseStepView):
         layout.addWidget(scroll_area)
 
         return gb_clinical
+
+    def _toggle_electrode(self, side: str, checked: bool) -> None:
+        """Toggle electrode enable/disable state for canvas and settings."""
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+
+        if side == 'left':
+            self.left_electrode_enabled = checked
+            self.left_group.setEnabled(checked)
+            self.left_canvas.setEnabled(checked)
+            # Apply opacity to visually dim canvas and settings
+            for widget in (self.left_canvas, self.left_group):
+                if not checked:
+                    effect = QGraphicsOpacityEffect(widget)
+                    effect.setOpacity(0.3)
+                    widget.setGraphicsEffect(effect)
+                else:
+                    widget.setGraphicsEffect(None)
+        elif side == 'right':
+            self.right_electrode_enabled = checked
+            self.right_group.setEnabled(checked)
+            self.right_canvas.setEnabled(checked)
+            for widget in (self.right_canvas, self.right_group):
+                if not checked:
+                    effect = QGraphicsOpacityEffect(widget)
+                    effect.setOpacity(0.3)
+                    widget.setGraphicsEffect(effect)
+                else:
+                    widget.setGraphicsEffect(None)
+
+    def _apply_preset_scales(self, scales: list[str]) -> None:
+        """Apply a list of preset scales to the clinical scales container."""
+        # Remove any existing stretches from container
+        while self.clinical_scales_container.count():
+            item = self.clinical_scales_container.takeAt(0)
+            if item.spacerItem():
+                # Just remove the stretch, no widget to delete
+                continue
+            elif item.widget():
+                item.widget().deleteLater()
+
+        for scale_name in scales:
+            self._add_clinical_scale_row(scale_name, with_minus=True, on_remove=self.on_remove_callback)
+
+        self._add_clinical_scale_row("", with_plus=True, on_add=self.on_add_callback)
+        self.clinical_scales_container.addStretch()
 
     def _create_notes_group(self) -> QGroupBox:
         """Create the initial notes group box."""
