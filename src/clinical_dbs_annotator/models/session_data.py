@@ -9,8 +9,7 @@ import csv
 from datetime import datetime
 from pathlib import Path
 from typing import TextIO
-
-import pytz
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..config import TIMEZONE, TSV_COLUMNS
 from .clinical_scale import ClinicalScale, SessionScale
@@ -138,6 +137,25 @@ class SessionData:
             self.tsv_file = None
             self.tsv_writer = None
 
+    @staticmethod
+    def _resolve_timezone():
+        if TIMEZONE in (None, "", "local"):
+            return None
+        try:
+            return ZoneInfo(TIMEZONE)
+        except ZoneInfoNotFoundError:
+            return None
+
+    @staticmethod
+    def _timezone_string(dt: datetime) -> str:
+        tzinfo = dt.tzinfo
+        if isinstance(tzinfo, ZoneInfo):
+            name = tzinfo.key
+        else:
+            name = dt.tzname() or "local"
+        offset = dt.strftime("%z")
+        return f"{name} {offset}".strip()
+
     def write_clinical_scales(
         self,
         scales: list[ClinicalScale],
@@ -157,10 +175,11 @@ class SessionData:
         if not self.tsv_writer:
             raise ValueError("TSV file not opened. Call open_file() first.")
 
-        tz = pytz.timezone(TIMEZONE)
-        now_et = datetime.now(tz)
-        time_str = now_et.strftime("%H:%M:%S")
-        today = datetime.now().astimezone().strftime("%Y-%m-%d")
+        tz = self._resolve_timezone()
+        now_localized = datetime.now(tz) if tz is not None else datetime.now().astimezone()
+        time_str = now_localized.strftime("%H:%M:%S")
+        today = now_localized.strftime("%Y-%m-%d")
+        tz_str = self._timezone_string(now_localized)
         stim_dict = stimulation.to_dict()
 
         # If no scales have values, write a single row with null scale data
@@ -169,6 +188,7 @@ class SessionData:
             row = {
                 "date": today,
                 "time": time_str,
+                "timezone": tz_str,
                 "block_id": self.block_id,
                 "program_ID": group,
                 "session_ID": self.session_id,
@@ -186,6 +206,7 @@ class SessionData:
                 row = {
                     "date": today,
                     "time": time_str,
+                    "timezone": tz_str,
                     "block_id": self.block_id,
                     "program_ID": group,
                     "session_ID": self.session_id,
@@ -220,11 +241,11 @@ class SessionData:
         if not self.tsv_writer:
             raise ValueError("TSV file not opened. Call open_file() first.")
 
-        # Get current time in Eastern timezone
-        tz = pytz.timezone(TIMEZONE)
-        now_et = datetime.now(tz)
-        time_str = now_et.strftime("%H:%M:%S")
-        today = datetime.now().astimezone().strftime("%Y-%m-%d")
+        tz = self._resolve_timezone()
+        now_localized = datetime.now(tz) if tz is not None else datetime.now().astimezone()
+        time_str = now_localized.strftime("%H:%M:%S")
+        today = now_localized.strftime("%Y-%m-%d")
+        tz_str = self._timezone_string(now_localized)
         stim_dict = stimulation.to_dict()
 
         # If no scales have values, write a single row with null scale data
@@ -233,6 +254,7 @@ class SessionData:
             row = {
                 "date": today,
                 "time": time_str,
+                "timezone": tz_str,
                 "block_id": self.block_id,
                 "program_ID": group,
                 "session_ID": self.session_id,
@@ -250,6 +272,7 @@ class SessionData:
                 row = {
                     "date": today,
                     "time": time_str,
+                    "timezone": tz_str,
                     "block_id": self.block_id,
                     "program_ID": group,
                     "session_ID": self.session_id,
@@ -305,7 +328,7 @@ class SessionData:
         self.tsv_file = open(filepath, "w", newline="", encoding="utf-8")
 
         # Simple header: date, time, and annotation
-        fieldnames = ["date", "time", "annotation"]
+        fieldnames = ["date", "time", "timezone", "annotation"]
 
         self.tsv_writer = csv.DictWriter(
             self.tsv_file,
@@ -335,7 +358,7 @@ class SessionData:
             except Exception:
                 fieldnames = None
 
-        fieldnames = fieldnames or ["date", "time", "annotation"]
+        fieldnames = fieldnames or ["date", "time", "timezone", "annotation"]
 
         self.tsv_writer = csv.DictWriter(
             self.tsv_file,
@@ -368,13 +391,16 @@ class SessionData:
         from datetime import datetime
 
 
-        time_str = datetime.now().astimezone().strftime("%H:%M:%S")
-        date_str = datetime.now().astimezone().strftime("%Y-%m-%d")
+        now_localized = datetime.now().astimezone()
+        time_str = now_localized.strftime("%H:%M:%S")
+        date_str = now_localized.strftime("%Y-%m-%d")
+        tz_str = self._timezone_string(now_localized)
 
         # Write row
         row = {
             "date": date_str,
             "time": time_str,
+            "timezone": tz_str,
             "annotation": annotation,
         }
         self.tsv_writer.writerow(row)

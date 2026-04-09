@@ -5,10 +5,12 @@ This module contains all constants, presets, and configuration values used
 throughout the application.
 """
 
+from __future__ import annotations
 
-# Application metadata
-APP_NAME = "BML Annotator for DBS clinical programming sessions"
-APP_VERSION = "v0.3_testing"
+from .version import get_version
+
+APP_NAME = "Clinical DBS Annotator"
+APP_VERSION = get_version()
 ORGANIZATION_NAME = "BML"
 
 # File paths (relative to executable)
@@ -56,6 +58,7 @@ BASE_DPI = 96  # Standard DPI
 TSV_COLUMNS = [
     "date",
     "time",
+    "timezone",
     "block_id",
     "program_ID",
     "session_ID",
@@ -77,7 +80,7 @@ TSV_COLUMNS = [
 ]
 
 # Timezone configuration
-TIMEZONE = "US/Eastern"
+TIMEZONE = "local"
 
 # Validation limits
 STIMULATION_LIMITS = {
@@ -94,42 +97,84 @@ SESSION_SCALE_LIMITS = {
     "step2": 0.5,
 }
 
-# Clinical scales presets
 CLINICAL_SCALES_PRESETS: dict[str, list[str]] = {
-    "OCD": ["YBOCS", "YBOCS-o", "YBOCS-c", "MADRS"],
-    "MDD": ["MADRS"],
-    "PD": ["UPDRS", "PDQ"],
-    "ET": ["FTM"],
-}
-
-# Session scales presets (name, min, max)
-SESSION_SCALES_PRESETS: dict[str, list[tuple[str, str, str]]] = {
     "OCD": [
-        ("Mood", "0", "10"),
-        ("Anxiety", "0", "10"),
-        ("Energy", "0", "10"),
-        ("OCD", "0", "10"),
+        "Y-BOCS",   # Yale–Brown Obsessive–Compulsive Scale
+        "Y-BOCS-o", "Y-BOCS-c",
+        "MADRS",    # Montgomery–Åsberg Depression Rating Scale
+        "OCI-R",    # Obsessive–Compulsive Inventory – Revised
     ],
     "MDD": [
-        ("Mood", "0", "10"),
+        "MADRS",    # Montgomery–Åsberg Depression Rating Scale
+        "HAM-D",    # Hamilton Depression Rating Scale
+        "BDI-II",   # Beck Depression Inventory – Second Edition
+    ],
+    "PD": [
+        "MDS-UPDRS",  # Movement Disorder Society – Unified Parkinson’s Disease Rating Scale
+        "UPDRS-III",  # Unified Parkinson’s Disease Rating Scale part III
+        "PDQ-39",     # Parkinson’s Disease Questionnaire (39-item)
+        "UDysRS",     # Unified Dyskinesia Rating Scale
+    ],
+    "ET": [
+        "FTM-TRS",  # Fahn–Tolosa–Marin Tremor Rating Scale
+        "TETRAS",   # The Essential Tremor Rating Assessment Scale
+    ],
+    "Dystonia": [
+        "BFMDRS",  # Burke–Fahn–Marsden Dystonia Rating Scale
+        "TWSTRS",  # Toronto Western Spasmodic Torticollis Rating Scale
+    ],
+    "TS": [
+        "YGTSS",   # Yale Global Tic Severity Scale
+        "PUTS",    # Premonitory Urge for Tics Scale
+        "TS-CGI",  # Tourette Syndrome Clinical Global Impression
+        "Y-BOCS",  # Yale–Brown Obsessive–Compulsive Scale
+    ],
+}
+
+SESSION_SCALES_PRESETS: dict[str, list[tuple[str, str, str]]] = {
+    "OCD": [
+        ("Obsessions", "0", "10"),
+        ("Compulsions", "0", "10"),
         ("Anxiety", "0", "10"),
+        ("Mood", "0", "10"),
         ("Energy", "0", "10"),
+    ],
+    "MDD": [
         ("Rumination", "0", "10"),
+        ("Anxiety", "0", "10"),
+        ("Mood", "0", "10"),
+        ("Energy", "0", "10"),
     ],
     "PD": [
         ("Tremor", "0", "10"),
         ("Rigidity", "0", "10"),
+        ("Bradykinesia", "0", "10"),
+        ("Dyskinesia", "0", "10"),
+        ("Gait / balance", "0", "10"),
+        ("Paresthesia", "0", "10"),
+        ("Speech difficulty", "0", "10"),
     ],
     "ET": [
-        ("Tremor", "0", "10"),
-        ("Rigidity", "0", "10"),
+        ("Action tremor", "0", "10"),
+        ("Resting tremor", "0", "10"),
+        ("Paresthesia", "0", "10"),
+        ("Speech difficulty", "0", "10"),
+    ],
+    "Dystonia": [
+        ("Muscle contractions", "0", "10"),
+        ("Abnormal posture", "0", "10"),
+        ("Pain", "0", "10"),
+    ],
+    "TS": [
+        ("Tic severity", "0", "10"),
+        ("Premonitory urge", "0", "10"),
+        ("Control over tics", "0", "10"),
+        ("Anxiety", "0", "10"),
+        ("Impulsivity", "0", "10"),
     ],
 }
+PRESET_BUTTONS = ["OCD", "MDD", "PD", "ET", "Dystonia", "TS"]
 
-# Available preset buttons
-PRESET_BUTTONS = ["OCD", "MDD", "PD", "ET"]
-
-# UI Style constants
 COLORS = {
     "primary": "#ff8800",
     "background": "#23272f",
@@ -163,7 +208,6 @@ BUTTON_SIZES = {
     "increment": {"width": 20, "height": 14},
 }
 
-# Placeholders
 PLACEHOLDERS = {
     "frequency": "Hz",
     "contact": "E#",

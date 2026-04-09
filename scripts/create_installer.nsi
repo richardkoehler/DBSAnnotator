@@ -5,9 +5,10 @@
 ; Download from: https://nsis.sourceforge.io/
 
 !define APP_NAME "Clinical DBS Annotator"
-!define APP_VERSION "0.1.0"
+; Derive version from the Python package (single source of truth).
+!searchparse /file "..\src\clinical_dbs_annotator\__init__.py" '__version__ = "' APP_VERSION '"'
 !define APP_PUBLISHER "BML"
-!define APP_EXE "ClinicalDBSAnnot_v0_1.exe"
+!define APP_EXE "ClinicalDBSAnnot_${APP_VERSION}.exe"
 !define INSTALL_DIR "$PROGRAMFILES\${APP_PUBLISHER}\${APP_NAME}"
 
 ; Includes
@@ -15,7 +16,7 @@
 
 ; General settings
 Name "${APP_NAME}"
-OutFile "..\dist\ClinicalDBSAnnot_Installer_v0.1.exe"
+OutFile "..\dist\ClinicalDBSAnnot_Installer_${APP_VERSION}.exe"
 InstallDir "${INSTALL_DIR}"
 InstallDirRegKey HKCU "Software\${APP_PUBLISHER}\${APP_NAME}" "InstallDir"
 RequestExecutionLevel admin

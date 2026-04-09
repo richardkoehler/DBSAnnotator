@@ -5,20 +5,30 @@ This script builds a standalone Windows executable with all necessary resources.
 """
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-# Get project root directory
 PROJECT_ROOT = Path(__file__).parent.parent
 DIST_DIR = PROJECT_ROOT / "dist"
 BUILD_DIR = PROJECT_ROOT / "build"
 ICONS_DIR = PROJECT_ROOT / "icons"
 SRC_DIR = PROJECT_ROOT / "src"
 
-APP_NAME = "ClinicalDBSAnnot"
-VERSION = "v0.3_testing"
+APP_NAME = "ClinicalDBSAnnotator"
 PLATFORM = "Windows"
+
+def _read_version() -> str:
+    init_path = SRC_DIR / "clinical_dbs_annotator" / "__init__.py"
+    text = init_path.read_text(encoding="utf-8")
+    m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']\s*$', text, flags=re.MULTILINE)
+    if not m:
+        raise RuntimeError(f"Could not determine version from {init_path}")
+    return m.group(1)
+
+
+VERSION = _read_version()
 
 
 def build_windows_exe(*, console: bool, onefile: bool) -> bool:
@@ -26,7 +36,6 @@ def build_windows_exe(*, console: bool, onefile: bool) -> bool:
     print(f"Building {APP_NAME} {VERSION} for Windows...")
 
     name = f"{APP_NAME}_{PLATFORM}_{VERSION.replace('.', '_')}"
-    # Use run.py as entrypoint
     entrypoint = PROJECT_ROOT / "run.py"
     styles_dir = PROJECT_ROOT / "styles"
     config_dir = SRC_DIR / "clinical_dbs_annotator" / "config"
@@ -40,10 +49,7 @@ def build_windows_exe(*, console: bool, onefile: bool) -> bool:
         f"--distpath={DIST_DIR}",
         f"--workpath={BUILD_DIR / 'pyinstaller'}",
         f"--specpath={BUILD_DIR / 'pyinstaller'}",
-        # "--exclude-module=pythoncom",
-        # "--exclude-module=pywintypes",
-        # "--exclude-module=win32com",
-        "--hidden-import=pytz",
+        "--hidden-import=tzdata",
         "--hidden-import=pandas",
         "--hidden-import=openpyxl",
         "--hidden-import=xlrd",
@@ -73,7 +79,6 @@ def build_windows_exe(*, console: bool, onefile: bool) -> bool:
         ]
     )
 
-    # Run PyInstaller
     try:
         subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
         print("\n✓ Build successful!")

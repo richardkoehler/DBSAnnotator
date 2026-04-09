@@ -85,7 +85,7 @@ class WizardWindow(QWidget):
 
     def _setup_window(self) -> None:
         """Configure the main window properties with responsive sizing."""
-        self.setWindowTitle(f"{APP_NAME} {APP_VERSION}")
+        self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
 
         # Set window icon
         icon_path = resource_path(os.path.join(ICONS_DIR, ICON_FILENAME))

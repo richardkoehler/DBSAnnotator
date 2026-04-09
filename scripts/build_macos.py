@@ -5,6 +5,7 @@ This script builds a standalone macOS .app bundle with all necessary resources.
 """
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -18,8 +19,18 @@ ICONS_DIR = PROJECT_ROOT / "icons"
 SRC_DIR = PROJECT_ROOT / "src"
 
 APP_NAME = "ClinicalDBSAnnot"
-VERSION = "v0.3_testing"
 PLATFORM = "macOS"
+
+def _read_version() -> str:
+    init_path = SRC_DIR / "clinical_dbs_annotator" / "__init__.py"
+    text = init_path.read_text(encoding="utf-8")
+    m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']\s*$', text, flags=re.MULTILINE)
+    if not m:
+        raise RuntimeError(f"Could not determine version from {init_path}")
+    return m.group(1)
+
+
+VERSION = _read_version()
 
 
 def update_macos_logo(png_path: Path) -> bool:
@@ -80,7 +91,7 @@ def build_macos_app(*, console: bool, onefile: bool):
         f"--workpath={BUILD_DIR / 'pyinstaller'}",
         f"--specpath={BUILD_DIR / 'pyinstaller'}",
         f"--icon={icon_path}",
-        "--hidden-import=pytz",
+        "--hidden-import=tzdata",
         "--hidden-import=pandas",
         "--hidden-import=openpyxl",
         "--hidden-import=xlrd",

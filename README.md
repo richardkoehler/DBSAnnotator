@@ -2,7 +2,7 @@
 
 A desktop application for annotating Deep Brain Stimulation (DBS) clinical programming sessions. Built for clinicians and researchers working with DBS systems (Medtronic Percept and others).
 
-**Version:** 0.3.0-beta
+**Version:** derived from `clinical_dbs_annotator.__version__`
 **Author:** Lucia Poma (lucia.poma@wysscenter.ch)
 
 ## For End Users
@@ -10,7 +10,7 @@ A desktop application for annotating Deep Brain Stimulation (DBS) clinical progr
 **No installation required.** Download the pre-built executable and run it directly:
 
 1. Go to the `dist/` folder
-2. Run `ClinicalDBSAnnot_v0_3_testing.exe`
+2. Run the `ClinicalDBSAnnotator_*.exe` artifact for your platform/version
 3. That's it — the application opens immediately
 
 The executable is self-contained and includes all dependencies.
