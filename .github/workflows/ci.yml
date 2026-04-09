@@ -31,6 +31,10 @@ jobs:
         run: |
           uv run ruff check --exclude tests .
 
+      - name: Run ruff format (check)
+        run: |
+          uv run ruff format --check --exclude tests .
+
       # Tests are temporarily disabled in CI until they are ready.
       # To re-enable, uncomment the step below once tests are stable.
       # - name: Run pytest
