@@ -501,15 +501,15 @@ class SessionExporter:
             right_row["block_id"] = block_id
 
             # Common columns (non-lateral) - use combined scales with internal lines
-            left_row['program_ID'] = first_row.get('program_ID', '')
-            left_row['scale_name'] = combined_scale_name
-            left_row['scale_value'] = combined_scale_value
-            left_row['notes'] = first_row.get('notes', '')
+            left_row["group_ID"] = first_row.get("group_ID", "")
+            left_row["scale_name"] = combined_scale_name
+            left_row["scale_value"] = combined_scale_value
+            left_row["notes"] = first_row.get("notes", "")
 
-            right_row['program_ID'] = first_row.get('program_ID', '')
-            right_row['scale_name'] = combined_scale_name
-            right_row['scale_value'] = combined_scale_value
-            right_row['notes'] = first_row.get('notes', '')
+            right_row["group_ID"] = first_row.get("group_ID", "")
+            right_row["scale_name"] = combined_scale_name
+            right_row["scale_value"] = combined_scale_value
+            right_row["notes"] = first_row.get("notes", "")
 
             # Lateral columns - map to generic names
             lateral_mappings = {
@@ -570,8 +570,15 @@ class SessionExporter:
             col for col in lateral_df.columns if col not in columns_to_exclude
         ]
 
-        lateral_cols = ['laterality', 'frequency', 'anode', 'cathode', 'amplitude', 'pulse_width']
-        common_cols = ['program_ID', 'scale_name', 'scale_value', 'notes']
+        lateral_cols = [
+            "laterality",
+            "frequency",
+            "anode",
+            "cathode",
+            "amplitude",
+            "pulse_width",
+        ]
+        common_cols = ["group_ID", "scale_name", "scale_value", "notes"]
 
         lateral_cols = [col for col in lateral_cols if col in display_columns]
         common_cols = [col for col in common_cols if col in display_columns]
@@ -588,15 +595,15 @@ class SessionExporter:
         ) / 914400
 
         base_in = {
-            'laterality': 0.30,
-            'program_ID': 0.40,
-            'frequency': 0.50,
-            'anode': 0.45,
-            'cathode': 0.60,
-            'amplitude': 0.60,
-            'pulse_width': 0.50,
-            'scale_name': 1.10,
-            'scale_value': 0.60,
+            "laterality": 0.30,
+            "group_ID": 0.40,
+            "frequency": 0.50,
+            "anode": 0.45,
+            "cathode": 0.60,
+            "amplitude": 0.60,
+            "pulse_width": 0.50,
+            "scale_name": 1.10,
+            "scale_value": 0.60,
         }
         widths_in = [base_in.get(c, 0.5) for c in ordered_columns]
         if "notes" in ordered_columns:

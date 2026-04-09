@@ -685,8 +685,16 @@ class LongitudinalExporter:
         ]
         display_cols = [c for c in lateral_df.columns if c not in columns_to_exclude]
 
-        lateral_cols = ["date", "laterality", "frequency", "anode", "cathode", "amplitude", "pulse_width"]
-        common_cols = ["program_ID", "scale_name", "scale_value", "notes"]
+        lateral_cols = [
+            "date",
+            "laterality",
+            "frequency",
+            "anode",
+            "cathode",
+            "amplitude",
+            "pulse_width",
+        ]
+        common_cols = ["group_ID", "scale_name", "scale_value", "notes"]
 
         lateral_cols = [c for c in lateral_cols if c in display_cols]
         common_cols = [c for c in common_cols if c in display_cols]
@@ -706,10 +714,16 @@ class LongitudinalExporter:
             section.page_width - section.left_margin - section.right_margin
         ) / 914400
         base_w = {
-            "date": 0.65, "laterality": 0.25, "program_ID": 0.35,
-            "frequency": 0.45, "anode": 0.45, "cathode": 0.60,
-            "amplitude": 0.60, "pulse_width": 0.50,
-            "scale_name": 1.00, "scale_value": 0.55,
+            "date": 0.65,
+            "laterality": 0.25,
+            "group_ID": 0.35,
+            "frequency": 0.45,
+            "anode": 0.45,
+            "cathode": 0.60,
+            "amplitude": 0.60,
+            "pulse_width": 0.50,
+            "scale_name": 1.00,
+            "scale_value": 0.55,
         }
         widths = [base_w.get(c, 0.5) for c in ordered]
         if "notes" in ordered:
@@ -1368,7 +1382,8 @@ class LongitudinalExporter:
             "cathode": "-",
             "amplitude": PLACEHOLDERS.get("amplitude", "Amp"),
             "pulse_width": PLACEHOLDERS.get("pulse_width", "PW"),
-            "program_ID": "Prog", "laterality": "",
+            "group_ID": "Grp",
+            "laterality": "",
         }
         return m.get(col, col.replace("_", " ").title())
 
