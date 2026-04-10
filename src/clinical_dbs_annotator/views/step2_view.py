@@ -5,8 +5,6 @@ This module contains the view for the second step where users configure
 the session tracking scales that will be used during the programming session.
 """
 
-import json
-import os
 from collections.abc import Callable
 
 from PySide6.QtCore import QSize, Qt
@@ -24,9 +22,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..config import PLACEHOLDERS, PRESET_BUTTONS, SESSION_SCALES_PRESETS
+from ..config import PLACEHOLDERS, PRESET_BUTTONS
 from ..ui.session_scales_settings_dialog import SessionScalesSettingsDialog
-from ..utils.resources import resource_path
+from ..utils.scale_preset_manager import get_scale_preset_manager
 from .base_view import BaseStepView
 
 
@@ -161,32 +159,9 @@ class Step2View(BaseStepView):
         return self.findChild(QPushButton, f"preset2_{preset_name}")
 
     def _load_session_presets(self) -> dict[str, list[tuple[str, str, str]]]:
-        """Load session presets from JSON file."""
-        presets_file = resource_path("config/session_scales_presets.json")
-
-        if os.path.exists(presets_file):
-            try:
-                with open(presets_file, encoding="utf-8") as f:
-                    raw = json.load(f)
-                presets: dict[str, list[tuple[str, str, str]]] = {}
-                for name, scales in (raw or {}).items():
-                    try:
-                        presets[name] = [
-                            (scale[0], scale[1], scale[2])
-                            if len(scale) == 3
-                            else (scale[0], scale[1], scale[2])
-                            if len(scale) >= 3
-                            else (scale[0], "", "")
-                            for scale in scales
-                        ]
-                    except IndexError, TypeError:
-                        presets[name] = []
-                return presets
-            except Exception as e:
-                print(f"Error loading session presets: {e}")
-                return {}
-        else:
-            return {k: list(v) for k, v in SESSION_SCALES_PRESETS.items()}
+        """Load session presets from ScalePresetManager."""
+        preset_manager = get_scale_preset_manager()
+        return preset_manager.get_session_presets()
 
     def _open_session_scales_settings(self):
         """Open the session scales settings dialog."""
@@ -198,12 +173,10 @@ class Step2View(BaseStepView):
         """Handle presets change from settings dialog and persist to JSON."""
         self.session_presets = new_presets
 
+        # Save all presets using ScalePresetManager
         try:
-            presets_file = resource_path("config/session_scales_presets.json")
-            os.makedirs(os.path.dirname(presets_file), exist_ok=True)
-            serializable = {k: [list(x) for x in v] for k, v in new_presets.items()}
-            with open(presets_file, "w", encoding="utf-8") as f:
-                json.dump(serializable, f, indent=2, ensure_ascii=False)
+            preset_manager = get_scale_preset_manager()
+            preset_manager.save_session_presets(new_presets)
         except Exception as e:
             print(f"Error saving session presets: {e}")
 
@@ -309,9 +282,13 @@ class Step2View(BaseStepView):
         """Set the active preset button and update visual state."""
         # Clear previous active button
         if self.active_preset_button is not None:
-            self.active_preset_button.setProperty("active", "false")
-            self.active_preset_button.style().unpolish(self.active_preset_button)
-            self.active_preset_button.style().polish(self.active_preset_button)
+            try:
+                self.active_preset_button.setProperty("active", "false")
+                self.active_preset_button.style().unpolish(self.active_preset_button)
+                self.active_preset_button.style().polish(self.active_preset_button)
+            except RuntimeError:
+                pass
+            self.active_preset_button = None
 
         # Set new active button
         self.active_preset_button = button
@@ -458,17 +435,20 @@ class Step2View(BaseStepView):
         if with_plus:
             btn = QPushButton("+")
             btn.setToolTip("Add session scale")
-            btn.setMaximumWidth(24)
+            btn.setFixedSize(20, 20)
+            btn.setObjectName("scale_add_btn")
             if on_add:
                 btn.clicked.connect(on_add)
         elif with_minus:
             btn = QPushButton("-")
             btn.setToolTip("Remove session scale")
-            btn.setMaximumWidth(24)
+            btn.setFixedSize(20, 20)
+            btn.setObjectName("scale_remove_btn")
             if on_remove:
                 btn.clicked.connect(lambda: on_remove(row))
         else:
             btn = QLabel("")
+            btn.setFixedSize(20, 20)
 
         row.addWidget(QLabel("Name:"))
         row.addWidget(name_edit)

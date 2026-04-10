@@ -5,7 +5,6 @@ This module contains the view for the first step of the wizard where users
 configure initial settings, stimulation parameters, and clinical scales.
 """
 
-import json
 import os
 from collections.abc import Callable
 from datetime import datetime
@@ -58,7 +57,7 @@ from ..utils.program_config_manager import (
     ProgramConfigManager,
     get_program_config_manager,
 )
-from ..utils.resources import resource_path
+from ..utils.scale_preset_manager import get_scale_preset_manager
 from .base_view import BaseStepView
 
 
@@ -1345,6 +1344,16 @@ class Step1View(BaseStepView):
                     self.clinical_scales_container.addStretch()
                     self._pending_scales = []  # Clear pending since we loaded them
 
+                    # Detect and select matching clinical preset
+                    loaded_scale_names = [name for name, _ in block0_scales]
+                    for preset_name, preset_scales in self.clinical_presets.items():
+                        # Check if loaded scales match or are a subset of preset scales
+                        if all(name in preset_scales for name in loaded_scale_names):
+                            # Select the matching preset button
+                            preset_btn = self.get_preset_button(preset_name)
+                            if preset_btn:
+                                self._set_active_preset_button(preset_btn)
+
                 self.update_configuration_display()
 
         except Exception as e:
@@ -1606,9 +1615,13 @@ class Step1View(BaseStepView):
         """Set the active preset button and update visual state."""
         # Clear previous active button
         if self.active_preset_button is not None:
-            self.active_preset_button.setProperty("active", "false")
-            self.active_preset_button.style().unpolish(self.active_preset_button)
-            self.active_preset_button.style().polish(self.active_preset_button)
+            try:
+                self.active_preset_button.setProperty("active", "false")
+                self.active_preset_button.style().unpolish(self.active_preset_button)
+                self.active_preset_button.style().polish(self.active_preset_button)
+            except RuntimeError:
+                pass
+            self.active_preset_button = None
 
         # Set new active button
         self.active_preset_button = button
@@ -1618,45 +1631,86 @@ class Step1View(BaseStepView):
             button.style().polish(button)
 
     def _apply_preset_scales(self, scales: list[str]):
-        """Apply a preset's scales to the clinical scales section."""
+        """Apply a preset's scales to the clinical scales section.
+
+        If same preset is clicked: keep existing scales with values, add missing scales.
+        If different preset is clicked: replace all scales with preset scales.
+        """
         if not isinstance(scales, list):
             return
 
         if hasattr(self, "on_add_callback") and hasattr(self, "on_remove_callback"):
-            # Clear existing scales first
-            for _, _, row_layout in self.clinical_scales_rows:
+            # Get existing scale names - with and without values
+            existing_scales_with_values = set()
+            all_existing_scale_names = set()
+            for name_edit, score_edit, _ in self.clinical_scales_rows:
+                name = name_edit.text().strip()
+                value = score_edit.text().strip()
+                if name:
+                    all_existing_scale_names.add(name)
+                    if value:
+                        existing_scales_with_values.add(name)
+
+            # Find the empty row (with add button) index
+            add_button_row_index = -1
+            for i, (name_edit, _, _) in enumerate(self.clinical_scales_rows):
+                if (
+                    name_edit.text().strip() == ""
+                ):  # Empty name indicates add button row
+                    add_button_row_index = i
+                    break
+
+            # Remove only the add button row temporarily
+            if add_button_row_index >= 0:
+                name_edit, score_edit, row_layout = self.clinical_scales_rows[
+                    add_button_row_index
+                ]
                 while row_layout.count():
                     item = row_layout.takeAt(0)
                     widget = item.widget()
                     if widget is not None:
                         widget.deleteLater()
                 self.clinical_scales_container.removeItem(row_layout)
-            self.clinical_scales_rows = []
+                self.clinical_scales_rows.pop(add_button_row_index)
 
-            # Also remove any stretches from container
-            while self.clinical_scales_container.count():
-                item = self.clinical_scales_container.takeAt(0)
-                if item.spacerItem():
-                    # Just remove the stretch, no widget to delete
-                    continue
-                elif item.widget():
-                    item.widget().deleteLater()
-                else:
-                    # Remove layout items
-                    continue
+            # Check if this is the same preset as before (by checking if all existing scales with values are in the new preset)
+            is_same_preset = all(name in scales for name in existing_scales_with_values)
 
-            # Add the preset scales
-            for scale_name in scales:
-                self._add_clinical_scale_row(
-                    scale_name, with_minus=True, on_remove=self.on_remove_callback
-                )
+            if is_same_preset and existing_scales_with_values:
+                # Same preset: keep existing scales, add only truly missing scales (not present at all)
+                for scale_name in scales:
+                    if scale_name not in all_existing_scale_names:
+                        self._add_clinical_scale_row(
+                            scale_name,
+                            with_minus=True,
+                            on_remove=self.on_remove_callback,
+                        )
+            else:
+                # Different preset or no existing scales: clear all and add preset scales
+                for _, _, row_layout in self.clinical_scales_rows:
+                    while row_layout.count():
+                        item = row_layout.takeAt(0)
+                        widget = item.widget()
+                        if widget is not None:
+                            widget.deleteLater()
+                    self.clinical_scales_container.removeItem(row_layout)
+                self.clinical_scales_rows = []
 
-            # Add empty row with add button
+                for scale_name in scales:
+                    self._add_clinical_scale_row(
+                        scale_name, with_minus=True, on_remove=self.on_remove_callback
+                    )
+
+            # Add empty row with add button back at the end
             self._add_clinical_scale_row(
                 "", with_plus=True, on_add=self.on_add_callback
             )
 
-            # Add stretch at the very bottom
+            # Remove any existing stretches and add one at the very bottom
+            for i in range(self.clinical_scales_container.count() - 1, -1, -1):
+                item = self.clinical_scales_container.itemAt(i)
+                if item and item.spacerItem():
+                    self.clinical_scales_container.takeAt(i)
             self.clinical_scales_container.addStretch()
 
     def _add_clinical_scale_row(
@@ -1679,25 +1733,28 @@ class Step1View(BaseStepView):
         score_edit = QLineEdit()
         score_edit.setPlaceholderText(PLACEHOLDERS["scale_score"])
         score_edit.setMaximumWidth(50)
+        score_edit.setValidator(QIntValidator())
         score_edit.setText(value)
 
         btn = None
         if with_plus:
             btn = QPushButton("+")
             btn.setToolTip("Add clinical scale")
-            btn.setMaximumWidth(24)
+            btn.setFixedSize(20, 20)
+            btn.setObjectName("scale_add_btn")
             if on_add:
                 btn.clicked.connect(on_add)
         elif with_minus:
             btn = QPushButton("-")
             btn.setToolTip("Remove clinical scale")
-            btn.setMaximumWidth(24)
+            btn.setFixedSize(20, 20)
+            btn.setObjectName("scale_remove_btn")
             if on_remove:
                 btn.clicked.connect(lambda: on_remove(row))
         else:
             # Fallback placeholder (prevents UnboundLocalError)
             btn = QLabel("")
-            btn.setFixedWidth(24)
+            btn.setFixedSize(20, 20)
 
         # Add widgets to row
         row.addWidget(QLabel("Name:"))
@@ -1713,19 +1770,9 @@ class Step1View(BaseStepView):
         self.clinical_scales_rows.append((name_edit, score_edit, row))
 
     def _load_clinical_presets(self) -> dict[str, list[str]]:
-        """Load clinical presets from config file."""
-        presets_file = resource_path("config/clinical_presets.json")
-
-        if os.path.exists(presets_file):
-            try:
-                with open(presets_file, encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"Error loading clinical presets: {e}")
-                return {}
-        else:
-            # Create default presets if file doesn't exist
-            return {k: list(v) for k, v in PRESET_BUTTONS.items()}
+        """Load clinical presets from ScalePresetManager."""
+        preset_manager = get_scale_preset_manager()
+        return preset_manager.get_clinical_presets()
 
     def _open_clinical_scales_settings(self):
         """Open the clinical scales settings dialog."""
@@ -1740,14 +1787,10 @@ class Step1View(BaseStepView):
         old_presets = self.clinical_presets
         self.clinical_presets = new_presets
 
-        # Save all presets to file immediately
+        # Save all presets using ScalePresetManager
         try:
-            presets_file = resource_path("config/clinical_presets.json")
-            os.makedirs(os.path.dirname(presets_file), exist_ok=True)
-
-            with open(presets_file, "w", encoding="utf-8") as f:
-                json.dump(new_presets, f, indent=2, ensure_ascii=False)
-
+            preset_manager = get_scale_preset_manager()
+            preset_manager.save_clinical_presets(new_presets)
         except Exception as e:
             print(f"Error saving presets: {e}")
 

@@ -31,7 +31,6 @@ from ..config import (
     APP_NAME,
     APP_VERSION,
     BASE_DPI,
-    CLINICAL_SCALES_PRESETS,
     FONT_SCALE_ENABLED,
     ICON_FILENAME,
     ICONS_DIR,
@@ -43,6 +42,7 @@ from ..config import (
 )
 from ..controllers import WizardController
 from ..utils import get_theme_manager, resource_path, rounded_pixmap
+from ..utils.scale_preset_manager import get_scale_preset_manager
 from .annotations_simple_view import AnnotationsFileView, AnnotationsSessionView
 from .longitudinal_file_view import LongitudinalFileView
 from .step0_view import Step0View
@@ -655,7 +655,9 @@ class WizardWindow(QWidget):
     def _connect_step1_signals(self) -> None:
         """Connect Step 1 view signals to controller."""
         # Connect preset buttons
-        for preset_name in CLINICAL_SCALES_PRESETS.keys():
+        preset_manager = get_scale_preset_manager()
+        clinical_presets = preset_manager.get_clinical_presets()
+        for preset_name in clinical_presets.keys():
             btn = self.step1_view.get_preset_button(preset_name)
             if btn:
                 btn.clicked.connect(
@@ -681,7 +683,21 @@ class WizardWindow(QWidget):
     def _connect_step2_signals(self) -> None:
         """Connect Step 2 view signals to controller."""
         self.controller.prepare_step2(self.step2_view)
+        # Connect preset buttons
+        preset_manager = get_scale_preset_manager()
+        session_presets = preset_manager.get_session_presets()
+        for preset_name in session_presets.keys():
+            btn = self.step2_view.get_preset_button(preset_name)
+            if btn:
+                btn.clicked.connect(
+                    lambda checked, name=preset_name: (
+                        self.controller.apply_session_preset(name, self.step2_view)
+                    )
+                )
         self.step2_view.next_button.clicked.connect(self._go_to_step3)
+
+        # Auto-select session preset if clinical scales match
+        # Moved to _go_to_step2 to be called every time navigating to step2
 
     def _connect_step3_signals(self) -> None:
         """Connect Step 3 view signals to controller."""
@@ -906,6 +922,9 @@ class WizardWindow(QWidget):
         self.current_step = 2
         self.stack.setCurrentWidget(self.step2_view)
         self._update_ui_state()
+
+        # Auto-select session preset if clinical preset was selected
+        self.controller.auto_select_session_preset(self.step2_view, self.step1_view)
 
     def _go_to_step3(self) -> None:
         """Navigate to Step 3 after validating Step 2."""

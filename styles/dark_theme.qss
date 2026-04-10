@@ -466,6 +466,22 @@ QPushButton[class="best-if-btn"] {
     color: #f1f5f9;
 }
 
+/* Scale Add/Remove Buttons */
+QPushButton#scale_add_btn, QPushButton#scale_remove_btn {
+    padding: 0px;
+    font-size: 14px;
+    font-weight: bold;
+    border: 1px solid #475569;
+    border-radius: 4px;
+    background-color: #334155;
+    color: #f1f5f9;
+}
+
+QPushButton#scale_add_btn:hover, QPushButton#scale_remove_btn:hover {
+    background-color: #475569;
+    border-color: #f59e0b;
+}
+
 QPushButton[class="best-if-btn"]:checked {
     background-color: #10b981;
     color: white;
