@@ -230,19 +230,6 @@ QPushButton#full_mode_button, QPushButton#annotations_only_button, QPushButton#l
     font-size: 12px;
     font-weight: 600;
     border: 2px solid #475569;
-
-    /* 3D gradient + glossy highlight */
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 0, y2: 1,
-        stop: 0 rgba(255,255,255,0.06),
-        stop: 0.03 #3f4b59,
-        stop: 0.5 #334155,
-        stop: 1 #22303a
-    );
-
-    /* icon default size if later aggiungi immagini */
-    qproperty-iconSize: 64px 64px;
-
     outline: none;
 }
 

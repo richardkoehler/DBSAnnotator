@@ -43,7 +43,7 @@ from ..config import (
 from ..controllers import WizardController
 from ..utils import get_theme_manager, resource_path, rounded_pixmap
 from ..utils.scale_preset_manager import get_scale_preset_manager
-from .annotations_simple_view import AnnotationsFileView, AnnotationsSessionView
+from .annotation_only_view import AnnotationsFileView, AnnotationsSessionView
 from .longitudinal_report_view import LongitudinalReportView as LongitudinalFileView
 from .step0_view import Step0View
 from .step1_view import Step1View
@@ -528,14 +528,14 @@ class WizardWindow(QWidget):
     def _load_annotations_only_views(self) -> None:
         """Load annotations-only workflow views (lazy loading)."""
         if self.annotations_file_view is None:
-            from .annotations_simple_view import AnnotationsFileView
+            from .annotation_only_view import AnnotationsFileView
 
             self.annotations_file_view = AnnotationsFileView(self)
             self.stack.addWidget(self.annotations_file_view)
             self._connect_annotations_file_signals()
 
         if self.annotations_session_view is None:
-            from .annotations_simple_view import AnnotationsSessionView
+            from .annotation_only_view import AnnotationsSessionView
 
             self.annotations_session_view = AnnotationsSessionView(self)
             self.stack.addWidget(self.annotations_session_view)
