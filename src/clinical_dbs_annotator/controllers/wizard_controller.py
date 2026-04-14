@@ -679,6 +679,7 @@ class WizardController:
         fmt: str,
         parent_widget=None,
         sections=None,
+        clinical_scale_prefs: list | None = None,
     ) -> None:
         """
         Generate a longitudinal report combining data from multiple TSV files.
@@ -688,11 +689,14 @@ class WizardController:
             scale_prefs: Scale optimization prefs [(name, min, max, mode, custom_value), ...]
             fmt: "word" or "pdf"
             parent_widget: Parent widget for dialogs
+            sections: List of section keys to include
+            clinical_scale_prefs: Clinical scale prefs, same format as scale_prefs
         """
         from ..utils.longitudinal_exporter import LongitudinalExporter
 
         exporter = LongitudinalExporter()
         exporter.set_scale_optimization_prefs(scale_prefs)
+        exporter.set_clinical_scale_prefs(clinical_scale_prefs)
 
         if fmt == "word":
             exporter.export_to_word(file_paths, parent_widget, sections=sections)

@@ -1,17 +1,4 @@
 {
-  "Dystonia": [
-    "BFMDRS",
-    "TWSTRS"
-  ],
-  "ET": [
-    "FTM-TRS",
-    "TETRAS"
-  ],
-  "MDD": [
-    "MADRS",
-    "HAM-D",
-    "BDI-II"
-  ],
   "OCD": [
     "Y-BOCS",
     "Y-BOCS-o",
@@ -19,11 +6,24 @@
     "MADRS",
     "OCI-R"
   ],
+  "MDD": [
+    "MADRS",
+    "HAM-D",
+    "BDI-II"
+  ],
   "PD": [
     "MDS-UPDRS",
     "UPDRS-III",
     "PDQ-39",
     "UDysRS"
+  ],
+  "ET": [
+    "FTM-TRS",
+    "TETRAS"
+  ],
+  "Dystonia": [
+    "BFMDRS",
+    "TWSTRS"
   ],
   "TS": [
     "YGTSS",

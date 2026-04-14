@@ -469,24 +469,36 @@ class WizardWindow(QWidget):
             )
             return
 
+        # Extract clinical scales (is_initial=1) for the dialog
+        clinical_scales = LongitudinalFileView.extract_clinical_scales_from_files(files)
+
         # Show scale optimization dialog
         from .export_dialog import (
             ReportSectionsDialog,
             ScaleTargetValuesDialog,
         )
 
-        dialog = ScaleTargetValuesDialog(scales, self)
+        dialog = ScaleTargetValuesDialog(
+            scales,
+            self,
+            clinical_scales=clinical_scales if clinical_scales else None,
+        )
         if dialog.exec() != QDialog.Accepted:
             return
 
         prefs = dialog.get_scale_prefs()
+        clinical_prefs = dialog.get_clinical_scale_prefs()
 
         # Show section selection dialog
+        session_data_children = [
+            ("session_data_overview_graph", "Session Data Overview Graph", True),
+            ("session_data_complete_table", "Session Data Complete Table", True),
+        ]
         section_defs = [
-            ("sessions_overview", "Sessions Overview", True),
-            ("session_data", "Session Data", True),
-            ("electrode_config", "Electrode Configuration", False),
-            ("programming_summary", "Programming Summary", False),
+            ("sessions_overview", "Sessions Overview", True, None),
+            ("session_data", "Session Data", True, session_data_children),
+            ("electrode_config", "Electrode Configuration", False, None),
+            ("programming_summary", "Programming Summary", False, None),
         ]
         sec_dialog = ReportSectionsDialog(section_defs, self, title="Report Sections")
         if sec_dialog.exec() != QDialog.Accepted:
@@ -497,6 +509,7 @@ class WizardWindow(QWidget):
         self.controller.export_longitudinal_report(
             file_paths=files,
             scale_prefs=prefs,
+            clinical_scale_prefs=clinical_prefs,
             fmt=fmt,
             parent_widget=self,
             sections=sections,
@@ -745,11 +758,15 @@ class WizardWindow(QWidget):
         # Show section selection dialog
         from .export_dialog import ReportSectionsDialog
 
+        session_data_children = [
+            ("session_data_overview_graph", "Session Data Overview Graph", True),
+            ("session_data_complete_table", "Session Data Complete Table", True),
+        ]
         section_defs = [
-            ("initial_notes", "Initial Clinical Notes", True),
-            ("session_data", "Session Data", True),
-            ("electrode_config", "Electrode Configurations", True),
-            ("programming_summary", "Programming Summary", True),
+            ("initial_notes", "Initial Clinical Notes", True, None),
+            ("session_data", "Session Data", True, session_data_children),
+            ("electrode_config", "Electrode Configurations", True, None),
+            ("programming_summary", "Programming Summary", True, None),
         ]
         sec_dialog = ReportSectionsDialog(section_defs, self, title="Report Sections")
         if sec_dialog.exec() != QDialog.Accepted:

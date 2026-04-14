@@ -32,11 +32,13 @@ from ..utils.theme_manager import get_theme_manager
 
 class ScaleTargetValuesDialog(QDialog):
     """
-    Dialog that shows session scales and lets the user pick an optimization
-    mode for each, with a checkbox to include / exclude individual scales.
+    Dialog that shows session scales (and optionally clinical scales) and
+    lets the user pick an optimization mode for each, with a checkbox to
+    include / exclude individual scales.
 
-    Accepted result: call ``get_scale_prefs()`` to retrieve
-    ``[(name, min, max, mode, custom_value), ...]``.
+    Accepted result: call ``get_scale_prefs()`` for session scales and
+    ``get_clinical_scale_prefs()`` for clinical scales.
+    Each returns ``[(name, min, max, mode, custom_value), ...]``.
     Unchecked scales get ``mode="ignore"``.
     """
 
@@ -45,16 +47,19 @@ class ScaleTargetValuesDialog(QDialog):
         scales: list[tuple[str, str, str]],
         parent=None,
         title: str = "Select Scales Target Values",
+        clinical_scales: list[tuple[str, str, str]] | None = None,
     ):
         """
         Args:
-            scales: list of (scale_name, observed_min, observed_max)
+            scales: list of (scale_name, observed_min, observed_max) for session scales
             title: window title
+            clinical_scales: optional list of (scale_name, observed_min, observed_max)
+                for clinical (is_initial=1) scales
         """
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.setMinimumWidth(680)
-        self.setMinimumHeight(300)
+        self.setMinimumWidth(720)
+        self.setMinimumHeight(350)
 
         # Apply current theme stylesheet
         theme_manager = get_theme_manager()
@@ -69,20 +74,12 @@ class ScaleTargetValuesDialog(QDialog):
 
         # Each entry: (name, min, max, checkbox, button_group, custom_edit, row_widgets)
         self._rows: list = []
+        self._clinical_rows: list = []
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
 
-        # Header
-        header = QLabel(
-            "The following session scales were found.\n"
-            "Uncheck a scale to exclude it from the best-entry calculation."
-        )
-        header.setWordWrap(True)
-        header.setStyleSheet("padding: 4px;")
-        layout.addWidget(header)
-
-        # Scrollable scale rows
+        # Scrollable content for both sections
         scroll_content = QWidget()
         scroll_content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         scroll_content.setAutoFillBackground(False)
@@ -90,8 +87,34 @@ class ScaleTargetValuesDialog(QDialog):
         self._rows_layout.setContentsMargins(0, 0, 0, 0)
         self._rows_layout.setSpacing(6)
 
+        # ── Session Scales section ──────────────────────────────────
+        session_header = QLabel(
+            "<b>Session Scales</b><br>"
+            "Uncheck a scale to exclude it from the best-entry calculation."
+        )
+        session_header.setWordWrap(True)
+        session_header.setStyleSheet("padding: 4px;")
+        self._rows_layout.addWidget(session_header)
+
         for name, min_v, max_v in scales:
-            self._add_scale_row(name, min_v, max_v)
+            self._add_scale_row(name, min_v, max_v, target_list=self._rows)
+
+        # ── Clinical Scales section (optional) ──────────────────────
+        if clinical_scales:
+            separator = QLabel("")
+            separator.setFixedHeight(8)
+            self._rows_layout.addWidget(separator)
+
+            clinical_header = QLabel(
+                "<b>Clinical Scales</b><br>"
+                "Set target values for clinical (baseline) scales."
+            )
+            clinical_header.setWordWrap(True)
+            clinical_header.setStyleSheet("padding: 4px;")
+            self._rows_layout.addWidget(clinical_header)
+
+            for name, min_v, max_v in clinical_scales:
+                self._add_scale_row(name, min_v, max_v, target_list=self._clinical_rows)
 
         self._rows_layout.addStretch()
 
@@ -119,8 +142,16 @@ class ScaleTargetValuesDialog(QDialog):
 
     # -----------------------------------------------------------------
 
-    def _add_scale_row(self, name: str, min_v: str, max_v: str) -> None:
+    def _add_scale_row(
+        self,
+        name: str,
+        min_v: str,
+        max_v: str,
+        target_list: list | None = None,
+    ) -> None:
         """Add a single scale row with checkbox + Min / Max / Custom."""
+        if target_list is None:
+            target_list = self._rows
         row_layout = QHBoxLayout()
 
         # Checkbox (default: checked / enabled)
@@ -211,23 +242,19 @@ class ScaleTargetValuesDialog(QDialog):
 
         checkbox.toggled.connect(_on_toggled)
 
-        self._rows.append(
+        target_list.append(
             (name, min_v, max_v, checkbox, group, custom_edit, toggleable)
         )
 
     # -----------------------------------------------------------------
 
-    def get_scale_prefs(self) -> list[tuple[str, str, str, str, str]]:
-        """
-        Return the user's optimization preferences.
-
-        Returns:
-            List of (name, min, max, mode, custom_value) tuples.
-            mode is one of ``"low"``, ``"high"``, ``"custom"``, ``"ignore"``.
-            Unchecked scales get ``mode="ignore"``.
-        """
-        prefs = []
-        for name, min_v, max_v, checkbox, group, custom_edit, _ in self._rows:
+    @staticmethod
+    def _extract_prefs(
+        rows: list,
+    ) -> list[tuple[str, str, str, str, str]]:
+        """Extract preference tuples from a row list."""
+        prefs: list[tuple[str, str, str, str, str]] = []
+        for name, min_v, max_v, checkbox, group, custom_edit, _ in rows:
             if not checkbox.isChecked():
                 prefs.append((name, min_v, max_v, "ignore", ""))
                 continue
@@ -243,19 +270,40 @@ class ScaleTargetValuesDialog(QDialog):
             prefs.append((name, min_v, max_v, mode, custom_value))
         return prefs
 
+    def get_scale_prefs(self) -> list[tuple[str, str, str, str, str]]:
+        """
+        Return the user's optimization preferences for **session** scales.
+
+        Returns:
+            List of (name, min, max, mode, custom_value) tuples.
+            mode is one of ``"min"``, ``"max"``, ``"custom"``, ``"ignore"``.
+            Unchecked scales get ``mode="ignore"``.
+        """
+        return self._extract_prefs(self._rows)
+
+    def get_clinical_scale_prefs(self) -> list[tuple[str, str, str, str, str]]:
+        """
+        Return the user's optimization preferences for **clinical** scales.
+
+        Returns:
+            Same format as :meth:`get_scale_prefs`.
+        """
+        return self._extract_prefs(self._clinical_rows)
+
 
 class ReportSectionsDialog(QDialog):
     """
     Dialog that lets the user choose which sections to include in the report.
 
-    Initialise with a list of (key, label, default_checked) tuples.
+    Initialise with a list of (key, label, default_checked, children) tuples.
+    children is an optional list of (key, label, default_checked) tuples for nested checkboxes.
     Call ``get_selected_sections()`` to retrieve the list of selected keys in
     the original order.
     """
 
     def __init__(
         self,
-        sections: list[tuple[str, str, bool]],
+        sections: list[tuple[str, str, bool, list | None]],
         parent=None,
         title: str = "Report Sections",
     ):
@@ -263,6 +311,10 @@ class ReportSectionsDialog(QDialog):
         self.setWindowTitle(title)
         self.setMinimumWidth(340)
         self._checkboxes: list[tuple[str, QCheckBox]] = []
+        self._parent_child_map: dict[
+            str, list[str]
+        ] = {}  # parent key -> list of child keys
+        self._child_parent_map: dict[str, str] = {}  # child key -> parent key
 
         # Apply current theme stylesheet
         theme_manager = get_theme_manager()
@@ -282,17 +334,114 @@ class ReportSectionsDialog(QDialog):
         label.setWordWrap(True)
         layout.addWidget(label)
 
-        for key, section_label, checked in sections:
+        for key, section_label, checked, children in sections:
             cb = QCheckBox(section_label)
             cb.setChecked(checked)
             layout.addWidget(cb)
             self._checkboxes.append((key, cb))
+
+            # Add nested children if present
+            if children:
+                child_layout = QVBoxLayout()
+                child_layout.setContentsMargins(20, 0, 0, 0)  # Indent for children
+                child_layout.setSpacing(4)
+
+                child_keys = []
+                for child_key, child_label, child_checked in children:
+                    child_cb = QCheckBox(child_label)
+                    child_cb.setChecked(child_checked)
+                    child_layout.addWidget(child_cb)
+                    self._checkboxes.append((child_key, child_cb))
+                    child_keys.append(child_key)
+                    self._child_parent_map[child_key] = key
+
+                    # Connect child checkbox to update parent
+                    child_cb.toggled.connect(
+                        lambda checked, parent=cb: self._on_child_toggled(
+                            parent, checked
+                        )
+                    )
+
+                self._parent_child_map[key] = child_keys
+                layout.addLayout(child_layout)
+
+                # Connect parent checkbox to update children
+                cb.toggled.connect(
+                    lambda checked, keys=child_keys: self._on_parent_toggled(
+                        keys, checked
+                    )
+                )
+
+                # If parent is initially checked, also check all children
+                if checked:
+                    for child_key in child_keys:
+                        for k, c in self._checkboxes:
+                            if k == child_key:
+                                c.setChecked(True)
+                                break
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def _on_parent_toggled(self, child_keys: list[str], checked: bool) -> None:
+        """Handle parent checkbox toggled - update all children."""
+        for child_key in child_keys:
+            for key, cb in self._checkboxes:
+                if key == child_key:
+                    cb.setChecked(checked)
+                    break
+
+    def _on_child_toggled(self, parent_cb: QCheckBox, checked: bool) -> None:
+        """Handle child checkbox toggled - update parent if all children have same state."""
+        # Find parent key
+        parent_key = None
+        for key, cb in self._checkboxes:
+            if cb == parent_cb:
+                # This is a child, find its parent
+                parent_key = self._child_parent_map.get(key)
+                break
+
+        if not parent_key:
+            return
+
+        # Get all children of this parent
+        child_keys = self._parent_child_map.get(parent_key, [])
+
+        # Check if all children are checked
+        all_checked = True
+        all_unchecked = True
+        for child_key in child_keys:
+            for key, cb in self._checkboxes:
+                if key == child_key:
+                    if cb.isChecked():
+                        all_unchecked = False
+                    else:
+                        all_checked = False
+                    break
+
+        # Update parent checkbox
+        if all_checked:
+            parent_cb.setChecked(True)
+        elif all_unchecked:
+            parent_cb.setChecked(False)
+        # If mixed, keep current state (partial check)
+
     def get_selected_sections(self) -> list[str]:
         """Return ordered list of keys for checked sections."""
-        return [key for key, cb in self._checkboxes if cb.isChecked()]
+        selected = []
+        for key, cb in self._checkboxes:
+            if cb.isChecked():
+                # If this is a parent with children, include children instead of parent
+                if key in self._parent_child_map:
+                    child_keys = self._parent_child_map[key]
+                    # Include all checked children
+                    for child_key in child_keys:
+                        for k, c in self._checkboxes:
+                            if k == child_key and c.isChecked():
+                                selected.append(child_key)
+                                break
+                else:
+                    selected.append(key)
+        return selected

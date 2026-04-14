@@ -535,7 +535,7 @@ class SessionExporter:
                     left_row[generic_col] = first_row.get(left_col, "")
 
             # Right side parameters
-            for right_col, generic_col in lateral_mappings.items():
+            for right_col, _generic_cbuild_scales_chartol in lateral_mappings.items():
                 if right_col.startswith("right_"):
                     right_row[generic_col] = first_row.get(right_col, "")
 
@@ -780,12 +780,12 @@ class SessionExporter:
 
         if best_ids:
             best_run = legend_para.add_run("■ ")
-            best_run.font.color.rgb = RGBColor(0xC3, 0xE6, 0xCB)
+            best_run.font.color.rgb = RGBColor(0x96, 0xD2, 0xA0)
             legend_para.add_run("Optimal configuration    ")
 
         if second_ids:
             second_run = legend_para.add_run("■ ")
-            second_run.font.color.rgb = RGBColor(0xE8, 0xF5, 0xE9)
+            second_run.font.color.rgb = RGBColor(0xC8, 0xEB, 0xCD)
             legend_para.add_run("Second-best configuration")
 
         # Show target values used for optimization
@@ -825,20 +825,18 @@ class SessionExporter:
     ) -> None:
         """Add a rainbow-colored timeline chart of session scales with a general index line."""
         import math as _math
-        from io import BytesIO
+
+        from .report_chart_utils import add_chart_to_doc, build_scales_chart
 
         # Guard: need valid input
         if lateral_df is None or lateral_df.empty:
-            doc.add_paragraph("No session data available for chart.")
             return
         if (
             "scale_name" not in lateral_df.columns
             or "scale_value" not in lateral_df.columns
         ):
-            doc.add_paragraph("No scale columns found in session data.")
             return
         if "block_id" not in lateral_df.columns:
-            doc.add_paragraph("No block ID column found in session data.")
             return
 
         # Use L rows only to avoid duplicates
@@ -850,7 +848,7 @@ class SessionExporter:
             df_l = lateral_df.drop_duplicates(subset=["block_id"]).copy()
 
         # Collect scale values per block
-        scale_data = {}  # scale_name -> {block_id: value}
+        scale_data: dict[str, dict[int, float]] = {}
         for _, row in df_l.iterrows():
             try:
                 block_id = int(row.get("block_id", 0))
@@ -872,198 +870,16 @@ class SessionExporter:
                 scale_data.setdefault(name, {})[block_id] = val
 
         if not scale_data:
-            doc.add_paragraph("No numeric scale values recorded for this session.")
             return
 
-        all_blocks = sorted({b for pts in scale_data.values() for b in pts})
-        if not all_blocks:
-            doc.add_paragraph("No configuration blocks with scale data found.")
-            return
-
-        try:
-            import pyqtgraph as pg
-            from PySide6.QtCore import QBuffer, QIODevice, Qt
-            from PySide6.QtGui import QBrush, QColor, QFont, QPen
-
-            pg.setConfigOptions(useOpenGL=False, antialias=True)
-
-            n_scales = len(scale_data)
-            rainbow = [
-                QColor.fromHsvF(i / max(n_scales, 1), 0.85, 0.85)
-                for i in range(n_scales)
-            ]
-
-            has_index = n_scales >= 2
-            win = pg.GraphicsLayoutWidget()
-            win.setBackground("w")
-            win.resize(1050, 500)  # Single plot, larger for right-side legend
-
-            # --- Main scales chart with General Index on same plot ---
-            p1 = win.addPlot(row=0, col=0)
-            p1.setTitle("Session Scales Timeline", color="k", size="14pt")
-            p1.setLabel("left", "Scale Value", color="k", size="14pt", font="Arial")
-            p1.setLabel("bottom", "Block", color="k", size="14pt", font="Arial")
-            p1.getAxis("left").setStyle(tickFont=QFont("Arial", 10))
-            p1.getAxis("bottom").setStyle(tickFont=QFont("Arial", 10))
-            p1.showGrid(x=True, y=True, alpha=0.3)
-            # Legend on right side external - increase offset and add background
-            legend = p1.addLegend(
-                offset=(1.15, 0.5), pen=QPen(Qt.black, 1), brush=QBrush(Qt.white)
-            )
-            legend.setLabelTextColor("k")
-
-            # Plot individual scales with original values (no normalization)
-            for idx, (sname, pts) in enumerate(scale_data.items()):
-                c = rainbow[idx]
-                xs = sorted(pts.keys())
-                ys = [pts[x] for x in xs]
-                p1.plot(
-                    xs,
-                    ys,
-                    pen=pg.mkPen(c, width=2),
-                    symbol="o",
-                    symbolPen=pg.mkPen(c, width=1),
-                    symbolBrush=pg.mkBrush(c),
-                    symbolSize=8,
-                    name=sname,
-                )
-
-            # --- General Index on same plot (if >= 2 scales) ---
-            if has_index:
-                # Create scale targets dictionary from preferences
-                scale_targets = {}
-                if self.scale_optimization_prefs:
-                    for pref in self.scale_optimization_prefs:
-                        if len(pref) >= 5:
-                            name, smin, smax, mode, custom_val = pref
-                            if mode == "min":
-                                scale_targets[name] = {"type": "min", "value": smin}
-                            elif mode == "max":
-                                scale_targets[name] = {"type": "max", "value": smax}
-                            elif mode == "custom":
-                                try:
-                                    scale_targets[name] = {
-                                        "type": "custom",
-                                        "value": float(custom_val),
-                                    }
-                                except ValueError:
-                                    scale_targets[name] = {
-                                        "type": "custom",
-                                        "value": 0.0,
-                                    }
-
-                index_vals = {}
-                for b in all_blocks:
-                    weighted_scores = []
-                    weights = []
-
-                    for scale_name in scale_data:
-                        if b in scale_data[scale_name]:
-                            original_value = scale_data[scale_name][b]
-
-                            # Get target for this scale
-                            if scale_name in scale_targets:
-                                target_info = scale_targets[scale_name]
-                                target_type = target_info["type"]
-                                target_value = target_info["value"]
-
-                                # Calculate distance from target (lower is better)
-                                if target_type == "min":
-                                    # For minimization: lower values are better
-                                    distance = original_value
-                                    max_possible = max(scale_data[scale_name].values())
-                                    # Normalize: 0 = at target (min), 1 = worst (max)
-                                    normalized_score = (
-                                        distance / max_possible
-                                        if max_possible > 0
-                                        else 0
-                                    )
-                                elif target_type == "max":
-                                    # For maximization: higher values are better
-                                    distance = (
-                                        max(scale_data[scale_name].values())
-                                        - original_value
-                                    )
-                                    max_possible = max(
-                                        scale_data[scale_name].values()
-                                    ) - min(scale_data[scale_name].values())
-                                    # Normalize: 0 = at target (max), 1 = worst (min)
-                                    normalized_score = (
-                                        distance / max_possible
-                                        if max_possible > 0
-                                        else 0
-                                    )
-                                elif target_type == "custom":
-                                    # For custom target: absolute distance from target
-                                    distance = abs(original_value - target_value)
-                                    max_distance = max(
-                                        abs(v - target_value)
-                                        for v in scale_data[scale_name].values()
-                                    )
-                                    # Normalize: 0 = at target, 1 = worst
-                                    normalized_score = (
-                                        distance / max_distance
-                                        if max_distance > 0
-                                        else 0
-                                    )
-
-                                # Convert to proximity score (higher is better)
-                                proximity_score = 1.0 - normalized_score
-                                weighted_scores.append(proximity_score)
-                                weights.append(1.0)  # Equal weight for now
-                            else:
-                                # No target defined: use neutral score
-                                weighted_scores.append(0.5)  # Neutral middle value
-                                weights.append(
-                                    0.5
-                                )  # Lower weight for scales without targets
-
-                    if weighted_scores and weights:
-                        # Calculate weighted average of proximity scores
-                        total_weight = sum(weights)
-                        if total_weight > 0:
-                            index_vals[b] = (
-                                sum(
-                                    w * s
-                                    for w, s in zip(
-                                        weights, weighted_scores, strict=False
-                                    )
-                                )
-                                / total_weight
-                            )
-                        else:
-                            index_vals[b] = 0.5  # Default neutral value
-
-                if index_vals:
-                    ix = sorted(index_vals.keys())
-                    iy = [index_vals[x] for x in ix]
-                    # Thicker black line for General Index
-                    p1.plot(
-                        ix,
-                        iy,
-                        pen=pg.mkPen("k", width=5),
-                        symbol="d",
-                        symbolPen="k",
-                        symbolBrush="k",
-                        symbolSize=10,
-                        name="General Index",
-                    )
-
-            # --- Export to PNG → Word ---
-            pixmap = win.grab()
-            qbuf = QBuffer()
-            qbuf.open(QIODevice.OpenModeFlag.WriteOnly)
-            pixmap.save(qbuf, "PNG")
-            qbuf.close()
-            img_buf = BytesIO(bytes(qbuf.data()))
-            doc.add_picture(img_buf, width=Inches(6))
-            doc.add_paragraph()
-            img_buf.close()
-            win.close()
-            del win
-
-        except Exception as e:
-            doc.add_paragraph(f"Chart generation error: {e}")
+        png = build_scales_chart(
+            scale_data,
+            self.scale_optimization_prefs,
+            title="Session Scales Timeline",
+            x_label="Block",
+            y_label="Scale Value",
+        )
+        add_chart_to_doc(doc, png)
 
     def _column_header(self, col: str) -> str:
         """Map an internal column name to a human-readable table header."""
@@ -1215,7 +1031,7 @@ class SessionExporter:
             intensity: "best" for darker green, "second" for lighter green
         """
         # Best = darker green, Second = lighter green
-        color = "C3E6CB" if intensity == "best" else "E8F5E9"
+        color = "96D2A0" if intensity == "best" else "C8EBCD"
         for cell in row_cells:
             try:
                 shading_elm = OxmlElement("w:shd")
@@ -1615,6 +1431,7 @@ class SessionExporter:
                 f"Report saved successfully:\n{pdf_path}",
                 msecs=2000,
             )
+            self._open_file(pdf_path)
             return True
 
         except Exception as e:
@@ -1624,6 +1441,22 @@ class SessionExporter:
                 f"Failed to export session data to PDF:\n{str(e)}",
             )
             return False
+
+    @staticmethod
+    def _open_file(path: str) -> None:
+        """Open a file with the system default application."""
+        try:
+            import subprocess
+            import sys
+
+            if sys.platform == "win32":
+                os.startfile(path)  # noqa: S606
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", path])  # noqa: S603
+            else:
+                subprocess.Popen(["xdg-open", path])  # noqa: S603
+        except Exception:
+            pass
 
     def export_to_word(self, parent: QWidget | None = None, sections=None) -> bool:
         """
@@ -1747,20 +1580,38 @@ class SessionExporter:
                 info_parts.append(f"Session: {session_num}")
             doc.add_paragraph("    ".join(info_parts))
 
-        # Determine which sections to include (default: all)
+        # Determine which sections to include (default: all except parent when children exist)
         all_keys = [
             "initial_notes",
             "session_data",
+            "session_data_overview_graph",
+            "session_data_complete_table",
             "electrode_config",
             "programming_summary",
         ]
-        active = set(sections) if sections is not None else set(all_keys)
+        if sections is not None:
+            active = set(sections)
+        else:
+            # Default: all sections, but use children instead of parent for session_data
+            active = set(all_keys) - {"session_data"}
 
         if "initial_notes" in active:
             doc.add_paragraph("")
             self._add_summary_section(doc, df, df_initial, df_table)
 
+        # Handle session_data sections
         if "session_data" in active:
+            # For backward compatibility, treat parent as table only
+            doc.add_paragraph("")
+            self._add_session_data_table(doc, df_table)
+
+        if "session_data_overview_graph" in active:
+            # Graph functionality not yet implemented for session reports
+            # doc.add_paragraph("")
+            # self._add_session_data_graph(doc, df_table)
+            pass
+
+        if "session_data_complete_table" in active:
             doc.add_paragraph("")
             self._add_session_data_table(doc, df_table)
 
