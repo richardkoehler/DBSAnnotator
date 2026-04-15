@@ -131,7 +131,7 @@ class Step2View(BaseStepView):
 
         return gb_session
 
-    def get_preset_button(self, preset_name: str) -> QPushButton:
+    def get_preset_button(self, preset_name: str) -> QPushButton | None:
         """Get a preset button by name."""
         return self.findChild(QPushButton, f"preset2_{preset_name}")
 
@@ -388,8 +388,8 @@ class Step2View(BaseStepView):
         maxval: str = "",
         with_plus: bool = False,
         with_minus: bool = False,
-        on_add: Callable = None,
-        on_remove: Callable = None,
+        on_add: Callable[[], None] | None = None,
+        on_remove: Callable[[QHBoxLayout], None] | None = None,
     ) -> None:
         """Add a single session scale row (name, min, max)."""
         row = QHBoxLayout()

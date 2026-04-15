@@ -5,6 +5,7 @@ import sys
 import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from types import TracebackType
 
 from PySide6.QtCore import (
     QMessageLogContext,
@@ -21,8 +22,24 @@ _log_file_path: Path | None = None
 _crash_log_file = None
 
 
+def _safe_exc_info(
+    exc_type: type[BaseException],
+    exc_value: BaseException | None,
+    exc_traceback: TracebackType | None,
+) -> (
+    tuple[type[BaseException], BaseException, TracebackType | None]
+    | tuple[None, None, None]
+):
+    """Normalize exception tuple for logging APIs that require non-optional exception values."""
+    if exc_value is None:
+        return (None, None, None)
+    return (exc_type, exc_value, exc_traceback)
+
+
 def _install_exception_hooks() -> None:
-    def exc_hook(exc_type, exc, tb):
+    def exc_hook(
+        exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None
+    ) -> None:
         logging.getLogger("uncaught").critical(
             "Uncaught exception",
             exc_info=(exc_type, exc, tb),
@@ -33,7 +50,7 @@ def _install_exception_hooks() -> None:
     def thread_exc_hook(args: threading.ExceptHookArgs) -> None:
         logging.getLogger("uncaught").critical(
             "Uncaught thread exception",
-            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+            exc_info=_safe_exc_info(args.exc_type, args.exc_value, args.exc_traceback),
         )
 
     threading.excepthook = thread_exc_hook
@@ -42,7 +59,7 @@ def _install_exception_hooks() -> None:
         logging.getLogger("uncaught").error(
             "Unraisable exception in %r",
             args.object,
-            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+            exc_info=_safe_exc_info(args.exc_type, args.exc_value, args.exc_traceback),
         )
 
     sys.unraisablehook = unraisable_hook

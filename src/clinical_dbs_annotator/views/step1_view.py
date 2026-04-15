@@ -9,6 +9,7 @@ import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
+from typing import cast
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QDoubleValidator, QIntValidator
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QFrame,
+    QGraphicsEffect,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -259,7 +261,7 @@ class Step1View(BaseStepView):
         self.left_stim_freq_edit.setMaximumWidth(80)
         self.left_stim_freq_edit.setPlaceholderText(PLACEHOLDERS["frequency"])
         self.left_stim_freq_edit.setValidator(
-            QIntValidator(freq_limits["min"], freq_limits["max"])
+            QIntValidator(int(freq_limits["min"]), int(freq_limits["max"]))
         )
         left_freq_widget = IncrementWidget(
             self.left_stim_freq_edit,
@@ -279,7 +281,9 @@ class Step1View(BaseStepView):
         self.left_amp_edit.setPlaceholderText(PLACEHOLDERS["amplitude"])
         self.left_amp_edit.setValidator(
             QDoubleValidator(
-                amp_limits["min"], amp_limits["max"], amp_limits["decimals"]
+                float(amp_limits["min"]),
+                float(amp_limits["max"]),
+                int(amp_limits["decimals"]),
             )
         )
         left_amp_widget = IncrementWidget(
@@ -299,7 +303,7 @@ class Step1View(BaseStepView):
         self.left_pw_edit.setMaximumWidth(80)
         self.left_pw_edit.setPlaceholderText(PLACEHOLDERS["pulse_width"])
         self.left_pw_edit.setValidator(
-            QIntValidator(pw_limits["min"], pw_limits["max"])
+            QIntValidator(int(pw_limits["min"]), int(pw_limits["max"]))
         )
         left_pw_widget = IncrementWidget(
             self.left_pw_edit,
@@ -344,7 +348,7 @@ class Step1View(BaseStepView):
         self.right_stim_freq_edit.setMaximumWidth(80)
         self.right_stim_freq_edit.setPlaceholderText(PLACEHOLDERS["frequency"])
         self.right_stim_freq_edit.setValidator(
-            QIntValidator(freq_limits["min"], freq_limits["max"])
+            QIntValidator(int(freq_limits["min"]), int(freq_limits["max"]))
         )
         right_freq_widget = IncrementWidget(
             self.right_stim_freq_edit,
@@ -364,7 +368,9 @@ class Step1View(BaseStepView):
         self.right_amp_edit.setPlaceholderText(PLACEHOLDERS["amplitude"])
         self.right_amp_edit.setValidator(
             QDoubleValidator(
-                amp_limits["min"], amp_limits["max"], amp_limits["decimals"]
+                float(amp_limits["min"]),
+                float(amp_limits["max"]),
+                int(amp_limits["decimals"]),
             )
         )
         right_amp_widget = IncrementWidget(
@@ -384,7 +390,7 @@ class Step1View(BaseStepView):
         self.right_pw_edit.setMaximumWidth(80)
         self.right_pw_edit.setPlaceholderText(PLACEHOLDERS["pulse_width"])
         self.right_pw_edit.setValidator(
-            QIntValidator(pw_limits["min"], pw_limits["max"])
+            QIntValidator(int(pw_limits["min"]), int(pw_limits["max"]))
         )
         right_pw_widget = IncrementWidget(
             self.right_pw_edit,
@@ -702,7 +708,7 @@ class Step1View(BaseStepView):
         canvas.contact_states.clear()
         canvas.case_state = ContactState.OFF
 
-        def apply_tokens(text: str, state: ContactState) -> None:
+        def apply_tokens(text: str, state: int) -> None:
             if not text:
                 return
             for token in text.split("_"):
@@ -921,7 +927,7 @@ class Step1View(BaseStepView):
                     effect.setOpacity(0.3)
                     widget.setGraphicsEffect(effect)
                 else:
-                    widget.setGraphicsEffect(None)
+                    widget.setGraphicsEffect(cast("QGraphicsEffect", None))
         elif side == "right":
             self.right_electrode_enabled = checked
             self.right_group.setEnabled(checked)
@@ -932,7 +938,7 @@ class Step1View(BaseStepView):
                     effect.setOpacity(0.3)
                     widget.setGraphicsEffect(effect)
                 else:
-                    widget.setGraphicsEffect(None)
+                    widget.setGraphicsEffect(cast("QGraphicsEffect", None))
 
     def _create_notes_group(self) -> QGroupBox:
         """Create the initial notes group box."""
@@ -1434,7 +1440,7 @@ class Step1View(BaseStepView):
             self.current_file_mode = "new"
             self.next_block_id = None
 
-    def get_preset_button(self, preset_name: str) -> QPushButton:
+    def get_preset_button(self, preset_name: str) -> QPushButton | None:
         """Get a preset button by name."""
         return self.findChild(QPushButton, f"preset_{preset_name}")
 
@@ -1656,8 +1662,8 @@ class Step1View(BaseStepView):
         value: str = "",
         with_plus: bool = False,
         with_minus: bool = False,
-        on_add: Callable = None,
-        on_remove: Callable = None,
+        on_add: Callable[[], None] | None = None,
+        on_remove: Callable[[QHBoxLayout], None] | None = None,
     ) -> None:
         """Add a single clinical scale row."""
         row = QHBoxLayout()

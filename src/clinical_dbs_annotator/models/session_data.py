@@ -128,7 +128,7 @@ class SessionData:
         try:
             with open(file_path, newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f, delimiter="\t")
-                existing_fieldnames = reader.fieldnames
+                existing_fieldnames = list(reader.fieldnames or [])
         except Exception:
             logger.warning(
                 "Failed to read existing TSV headers, using defaults: %s",
@@ -388,7 +388,7 @@ class SessionData:
             try:
                 with open(filepath, newline="", encoding="utf-8") as f:
                     reader = csv.DictReader(f, delimiter="\t")
-                    fieldnames = reader.fieldnames
+                    fieldnames = list(reader.fieldnames or [])
             except Exception:
                 logger.warning(
                     "Failed reading annotation TSV headers, using defaults: %s",

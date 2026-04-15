@@ -14,12 +14,13 @@ from datetime import datetime
 
 import pandas as pd
 from docx import Document
+from docx.document import Document as DocumentType
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPainter, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .. import __app_name__, __version__
@@ -297,7 +298,7 @@ class SessionExporter:
 
     def _add_summary_section(
         self,
-        doc: Document,
+        doc: DocumentType,
         df: pd.DataFrame,
         df_initial: pd.DataFrame,
         df_final: pd.DataFrame,
@@ -338,7 +339,7 @@ class SessionExporter:
 
     def _add_programming_summary(
         self,
-        doc: Document,
+        doc: DocumentType,
         df: pd.DataFrame,
         df_initial: pd.DataFrame,
         df_final: pd.DataFrame,
@@ -356,10 +357,10 @@ class SessionExporter:
         duration_str = "N/A"
         try:
             if "time" in df.columns and "date" in df.columns:
-                timestamps = pd.to_datetime(
-                    df["date"].astype(str) + " " + df["time"].astype(str),
-                    errors="coerce",
-                ).dropna()
+                date_time_str = (
+                    df["date"].astype(str).str.cat(df["time"].astype(str), sep=" ")
+                )
+                timestamps = pd.to_datetime(date_time_str, errors="coerce").dropna()
             elif "time" in df.columns:
                 timestamps = pd.to_datetime(df["time"], errors="coerce").dropna()
             else:
@@ -558,7 +559,9 @@ class SessionExporter:
 
         return pd.DataFrame(lateral_data)
 
-    def _add_session_data_table(self, doc: Document, df_table: pd.DataFrame) -> None:
+    def _add_session_data_table(
+        self, doc: DocumentType, df_table: pd.DataFrame
+    ) -> None:
         """Add the lateral session-data table to the Word document."""
         doc.add_heading("Session Data", level=1)
 
@@ -604,9 +607,10 @@ class SessionExporter:
 
         # Define column widths in inches
         section = doc.sections[0]
-        page_width_inches = (
-            section.page_width - section.left_margin - section.right_margin
-        ) / 914400
+        page_width = int(section.page_width or 0)
+        left_margin = int(section.left_margin or 0)
+        right_margin = int(section.right_margin or 0)
+        page_width_inches = (page_width - left_margin - right_margin) / 914400
 
         base_in = {
             "laterality": 0.30,
@@ -777,7 +781,7 @@ class SessionExporter:
         self._add_table_legend(doc, best_block_ids, second_best_ids)
 
     def _add_table_legend(
-        self, doc: Document, best_ids: list, second_ids: list
+        self, doc: DocumentType, best_ids: list, second_ids: list
     ) -> None:
         """Add color legend and clinical disclaimer below the session data table."""
         from docx.shared import Pt, RGBColor
@@ -835,7 +839,7 @@ class SessionExporter:
         disclaimer_run.font.italic = True
 
     def _add_scales_timeline_chart(
-        self, doc: Document, lateral_df: pd.DataFrame
+        self, doc: DocumentType, lateral_df: pd.DataFrame
     ) -> None:
         """Add a rainbow-colored timeline chart of session scales with a general index line."""
         import math as _math
@@ -1069,7 +1073,7 @@ class SessionExporter:
             qbuf.open(QIODevice.OpenModeFlag.WriteOnly)
             pixmap.save(qbuf, "PNG")
             qbuf.close()
-            img_buf = BytesIO(bytes(qbuf.data()))
+            img_buf = BytesIO(qbuf.data().data())
             doc.add_picture(img_buf, width=Inches(6))
             doc.add_paragraph()
             img_buf.close()
@@ -1106,7 +1110,8 @@ class SessionExporter:
         if "block_id" in df.columns:
             try:
                 bid = pd.to_numeric(df["block_id"], errors="coerce")
-                return df.loc[bid.idxmax()]
+                max_idx = bid.idxmax()
+                return df.loc[[max_idx]].iloc[0]
             except Exception:
                 logger.debug(
                     "Fallback to last row after block_id parse failure", exc_info=True
@@ -1319,7 +1324,7 @@ class SessionExporter:
         canvas.contact_states.clear()
         canvas.case_state = ContactState.OFF
 
-        def apply_tokens(text: str, state: ContactState) -> None:
+        def apply_tokens(text: str, state: int) -> None:
             if not text:
                 return
             for token in str(text).split("_"):
@@ -1372,16 +1377,6 @@ class SessionExporter:
             pass
         self._apply_contact_tokens_to_canvas(canvas, anode_text, cathode_text)
 
-        # Force white background by temporarily overriding paintEvent
-        original_paint = canvas.paintEvent
-
-        def white_bg_paint(event):
-            painter = QPainter(canvas)
-            painter.fillRect(canvas.rect(), Qt.white)
-            original_paint(event)
-
-        canvas.paintEvent = white_bg_paint
-
         pixmap = QPixmap(canvas.size())
         pixmap.fill(Qt.white)
         canvas.render(pixmap)
@@ -1416,7 +1411,7 @@ class SessionExporter:
         return tmp.name
 
     def _add_electrode_config_section(
-        self, doc: Document, df: pd.DataFrame, df_initial: pd.DataFrame
+        self, doc: DocumentType, df: pd.DataFrame, df_initial: pd.DataFrame
     ) -> None:
         """Add the initial vs final electrode configuration images to the document."""
         if df is None or df.empty:
@@ -1577,10 +1572,11 @@ class SessionExporter:
             run.add_picture(img_path, width=Inches(1.15))
 
         for pth in paths.values():
-            try:
-                os.unlink(pth)
-            except Exception:
-                pass
+            if pth:
+                try:
+                    os.unlink(pth)
+                except Exception:
+                    pass
 
     def export_to_pdf(self, parent: QWidget | None = None, sections=None) -> bool:
         """Export session data to PDF by generating a Word report and converting it."""
@@ -1743,14 +1739,12 @@ class SessionExporter:
                 pd.to_numeric(df["is_initial"], errors="coerce").fillna(0).astype(int)
             )
 
-        df_initial = (
-            df[df.get("is_initial", 0) == 1]
-            if "is_initial" in df.columns
-            else df.iloc[0:0]
-        )
-        df_table = (
-            df[df.get("is_initial", 0) != 1] if "is_initial" in df.columns else df
-        )
+        if "is_initial" in df.columns:
+            df_initial = df[df["is_initial"] == 1]
+            df_table = df[df["is_initial"] != 1]
+        else:
+            df_initial = df.iloc[0:0]
+            df_table = df
 
         doc = Document()
 
@@ -1804,7 +1798,7 @@ class SessionExporter:
         doc.save(file_path)
         return True
 
-    def _add_report_footer(self, doc: Document) -> None:
+    def _add_report_footer(self, doc: DocumentType) -> None:
         """Add footer with patient ID and session number."""
         from docx.shared import Pt
 

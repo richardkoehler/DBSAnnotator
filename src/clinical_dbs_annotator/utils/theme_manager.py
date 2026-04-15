@@ -119,7 +119,7 @@ class ThemeManager:
 
         return re.sub(r"url\(([^)]+)\)", _resolve, content)
 
-    def apply_theme(self, theme: Theme, app: QApplication = None) -> None:
+    def apply_theme(self, theme: Theme, app: QApplication | None = None) -> None:
         """
         Apply a theme to the application.
 
@@ -131,7 +131,8 @@ class ThemeManager:
             ValueError: If app is None and no QApplication instance exists
         """
         if app is None:
-            app = QApplication.instance()
+            maybe_app = QApplication.instance()
+            app = maybe_app if isinstance(maybe_app, QApplication) else None
 
         if app is None:
             raise ValueError("No QApplication instance available")
@@ -157,7 +158,7 @@ class ThemeManager:
             tooltip_palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#0f172a"))
         QToolTip.setPalette(tooltip_palette)
 
-    def toggle_theme(self, app: QApplication = None) -> Theme:
+    def toggle_theme(self, app: QApplication | None = None) -> Theme:
         """
         Toggle between dark and light themes.
 
