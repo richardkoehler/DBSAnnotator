@@ -35,12 +35,6 @@ jobs:
         run: |
           uv run ruff format --check .
 
-      - name: Run pytest
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: |
-          uv run pytest --cov-fail-under=48
-
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
@@ -63,3 +57,34 @@ jobs:
         run: |
           uv run ty check .
 
+  test:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+          # Apple Silicon (arm64); see https://github.com/actions/runner-images
+          - os: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: |
+          uv sync --locked --dev
+
+      - name: Run pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          uv run pytest --cov-fail-under=48
