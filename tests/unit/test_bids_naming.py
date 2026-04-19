@@ -6,6 +6,8 @@ Tests cover:
 - Patient/session ID extraction from filenames
 """
 
+import re
+
 
 class TestBIDSNaming:
     """Test suite for BIDS naming utilities."""
@@ -25,7 +27,9 @@ class TestBIDSNaming:
         exporter = SessionExporter(MockSessionData())
 
         result = exporter._generate_bids_report_filename(".docx")
-        assert result == "sub-01_ses-01_task-percept_acq-20260208_report.docx"
+        assert re.match(
+            r"sub-01_ses-\d{8}_task-percept_run-01_report\.docx$", result
+        ), result
 
     def test_generate_bids_report_filename_pdf(self):
         """Test converting events.tsv to report.pdf."""
@@ -41,7 +45,9 @@ class TestBIDSNaming:
         exporter = SessionExporter(MockSessionData())
 
         result = exporter._generate_bids_report_filename(".pdf")
-        assert result == "sub-ABC_ses-02_task-percept_acq-20260208_report.pdf"
+        assert re.match(
+            r"sub-ABC_ses-\d{8}_task-percept_run-01_report\.pdf$", result
+        ), result
 
     def test_extract_bids_info_standard(self):
         """Test extracting patient ID and session from BIDS filename."""

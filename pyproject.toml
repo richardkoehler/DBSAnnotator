@@ -33,9 +33,9 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-qt>=4.4.0",
+    "pytest-timeout>=2.3.0",
     "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
-    # "mypy>=1.8.0",
     "pre-commit>=3.6",
     "ty>=0.0.30",
     "pandas-stubs>=3.0.0.260204",
@@ -76,10 +76,26 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--verbose",
+    "--timeout=3",
     "--cov=dbs_annotator",
     "--cov-report=html",
     "--cov-report=term-missing",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+markers = [
+    "gui: Qt GUI / widget tests",
+    "integration: cross-module behavior",
+    "slow: longer GUI or lazy-loaded wizard flows; skip locally with pytest -m \"not slow\"",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+omit = ["*/tests/*"]
 
 [tool.ruff]
 line-length = 88
@@ -107,21 +123,3 @@ select = [
 ignore = [
     "E501",  # line too long (handled by formatter/line-length)
 ]
-
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-strict_optional = true
-
-[[tool.mypy.overrides]]
-module = "PySide6.*"
-ignore_missing_imports = true
-

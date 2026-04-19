@@ -1,18 +1,9 @@
-#!/usr/bin/env python3
-"""
-Basic unit tests for Views.
+"""Smoke tests for PySide6 views."""
 
-Simple tests without complex mocking to verify UI components work.
-"""
+from __future__ import annotations
 
-import sys
-import unittest
-from pathlib import Path
-
-# Add src directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
-from PyQt5.QtWidgets import QApplication, QPushButton
+import pytest
+from PySide6.QtWidgets import QPushButton
 
 from dbs_annotator.views import (
     Step0View,
@@ -23,113 +14,49 @@ from dbs_annotator.views import (
 )
 
 
-class TestStep0View(unittest.TestCase):
-    """Test Step 0 view functionality."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.app = QApplication(sys.argv)
-        self.view = Step0View()
-
-    def test_view_creates_successfully(self):
-        """Test that Step0View creates without errors."""
-        # This should not raise any exceptions
-        self.assertIsNotNone(self.view)
-        self.assertIsNotNone(self.view.full_mode_button)
-        self.assertIsNotNone(self.view.annotations_only_button)
-
-    def test_buttons_are_push_buttons(self):
-        """Test that buttons are QPushButton instances."""
-        self.assertIsInstance(self.view.full_mode_button, QPushButton)
-        self.assertIsInstance(self.view.annotations_only_button, QPushButton)
+@pytest.mark.gui
+def test_step0_creates(qtbot, qapp):
+    view = Step0View()
+    qtbot.addWidget(view)
+    assert view.full_mode_button is not None
+    assert view.annotations_only_button is not None
+    assert isinstance(view.full_mode_button, QPushButton)
 
 
-class TestStep1View(unittest.TestCase):
-    """Test Step 1 view functionality."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.app = QApplication(sys.argv)
-        self.view = Step1View()
-
-    def test_view_creates_successfully(self):
-        """Test that Step1View creates without errors."""
-        self.assertIsNotNone(self.view)
-        self.assertIsNotNone(self.view.next_button)
-        self.assertIsNotNone(self.view.back_button)
+@pytest.mark.gui
+def test_step1_creates(qtbot, qapp):
+    view = Step1View()
+    qtbot.addWidget(view)
+    assert view.next_button is not None
 
 
-class TestStep2View(unittest.TestCase):
-    """Test Step 2 view functionality."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.app = QApplication(sys.argv)
-        self.view = Step2View()
-
-    def test_view_creates_successfully(self):
-        """Test that Step2View creates without errors."""
-        self.assertIsNotNone(self.view)
-        self.assertIsNotNone(self.view.next_button)
-        self.assertIsNotNone(self.view.back_button)
+@pytest.mark.gui
+def test_step2_creates(qtbot, qapp):
+    view = Step2View()
+    qtbot.addWidget(view)
+    assert view.next_button is not None
 
 
-class TestStep3View(unittest.TestCase):
-    """Test Step 3 view functionality."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.app = QApplication(sys.argv)
-        self.view = Step3View()
-
-    def test_view_creates_successfully(self):
-        """Test that Step3View creates without errors."""
-        self.assertIsNotNone(self.view)
-        self.assertIsNotNone(self.view.insert_button)
-        self.assertIsNotNone(self.view.close_button)
-        self.assertIsNotNone(self.view.export_button)
-
-    def test_export_menu_exists(self):
-        """Test that export menu exists."""
-        self.assertIsNotNone(self.view.export_menu)
-        # Menu should have 3 actions (Excel, Word, PDF)
-        self.assertEqual(len(self.view.export_menu.actions()), 3)
+@pytest.mark.gui
+def test_step3_export_menu_two_actions(qtbot, qapp):
+    view = Step3View()
+    qtbot.addWidget(view)
+    assert view.export_menu is not None
+    assert len(view.export_menu.actions()) == 2
+    assert view.export_word_action is not None
+    assert view.export_pdf_action is not None
 
 
-class TestWizardWindow(unittest.TestCase):
-    """Test main wizard window."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.app = QApplication(sys.argv)
-        self.window = WizardWindow()
-
-    def test_window_creates_successfully(self):
-        """Test that WizardWindow creates without errors."""
-        self.assertIsNotNone(self.window)
-        self.assertIsNotNone(self.window.controller)
-        self.assertIsNotNone(self.window.step0_view)
-        self.assertIsNotNone(self.window.step1_view)
-        self.assertIsNotNone(self.window.step2_view)
-        self.assertIsNotNone(self.window.step3_view)
+@pytest.mark.gui
+def test_wizard_window_creates(wizard):
+    assert wizard.controller is not None
+    assert wizard.step0_view is not None
 
 
-class TestViewBasicFunctionality(unittest.TestCase):
-    """Test basic view functionality across all views."""
-
-    def test_all_views_import_successfully(self):
-        """Test that all views can be imported."""
-        # This tests that our imports work correctly
-        try:
-            Step0View()
-            Step1View()
-            Step2View()
-            Step3View()
-            WizardWindow()
-            self.assertTrue(True)  # All imports successful
-        except Exception as e:
-            self.fail(f"Failed to import views: {e}")
-
-
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.gui
+def test_all_step_views_importable(qtbot, qapp):
+    for cls in (Step0View, Step1View, Step2View, Step3View):
+        w = cls()
+        qtbot.addWidget(w)
+    win = WizardWindow(qapp)
+    qtbot.addWidget(win)

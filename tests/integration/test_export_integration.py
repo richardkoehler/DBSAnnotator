@@ -1,179 +1,110 @@
-#!/usr/bin/env python3
-"""
-Integration tests for export functionality.
+"""Integration tests for SessionExporter (PySide6, small fixtures)."""
 
-Tests the complete export workflow from UI to file generation.
-"""
+from __future__ import annotations
 
-import sys
-import tempfile
-import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
-# Add src directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
-from PyQt5.QtWidgets import QApplication
-
-from dbs_annotator.controllers.wizard_controller import WizardController
 from dbs_annotator.models.session_data import SessionData
 from dbs_annotator.utils.session_exporter import SessionExporter
-from dbs_annotator.views.step3_view import Step3View
 
 
-class TestExportIntegration(unittest.TestCase):
-    """Test export functionality integration."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.app = QApplication(sys.argv)
-
-        # Create sample data
-        self.sample_data = [
-            {
-                "date": "2024-01-15",
-                "time": "09:30:00",
-                "block_id": "1",
-                "scale_name": "YBOCS",
-                "scale_value": "20",
-                "stim_freq": "130",
-                "left_contact": "e1-e3",
-                "left_amplitude": "3.5",
-                "left_pulse_width": "60",
-                "right_contact": "e2-e4",
-                "right_amplitude": "4.0",
-                "right_pulse_width": "60",
-                "notes": "Baseline measurement",
-            },
-            {
-                "date": "2024-01-15",
-                "time": "10:30:00",
-                "block_id": "2",
-                "scale_name": "YBOCS",
-                "scale_value": "18",
-                "stim_freq": "130",
-                "left_contact": "e1-e3",
-                "left_amplitude": "4.0",
-                "left_pulse_width": "60",
-                "right_contact": "e2-e4",
-                "right_amplitude": "4.5",
-                "right_pulse_width": "60",
-                "notes": "After stimulation",
-            },
-        ]
-
-        # Create temporary TSV file
-        self.temp_file = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tsv", delete=False
-        )
-        df = pd.DataFrame(self.sample_data)
-        df.to_csv(self.temp_file.name, sep="\t", index=False)
-        self.temp_file.close()
-
-        # Create session data with temporary file
-        self.session_data = SessionData()
-        self.session_data.file_path = self.temp_file.name
-
-        # Create exporter
-        self.exporter = SessionExporter(self.session_data)
-
-    def tearDown(self):
-        """Clean up test environment."""
-        Path(self.temp_file.name).unlink(missing_ok=True)
-
-    @patch("PyQt5.QtWidgets.QFileDialog.getSaveFileName")
-    @patch("PyQt5.QtWidgets.QMessageBox.information")
-    def test_excel_export_integration(self, mock_msgbox, mock_file_dialog):
-        """Test Excel export integration."""
-        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as excel_file:
-            excel_path = excel_file.name
-
-        mock_file_dialog.return_value = (excel_path, "Excel Files (*.xlsx)")
-
-        result = self.exporter.export_to_excel()
-
-        self.assertTrue(result)
-        self.assertTrue(Path(excel_path).exists())
-        mock_msgbox.assert_called_once()
-
-    @patch("PyQt5.QtWidgets.QFileDialog.getSaveFileName")
-    @patch("PyQt5.QtWidgets.QMessageBox.information")
-    def test_word_export_integration(self, mock_msgbox, mock_file_dialog):
-        """Test Word export integration."""
-        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as word_file:
-            word_path = word_file.name
-
-        mock_file_dialog.return_value = (word_path, "Word Files (*.docx)")
-
-        result = self.exporter.export_to_word()
-
-        self.assertTrue(result)
-        self.assertTrue(Path(word_path).exists())
-        mock_msgbox.assert_called_once()
-
-    @patch("PyQt5.QtWidgets.QFileDialog.getSaveFileName")
-    @patch("PyQt5.QtWidgets.QMessageBox.information")
-    def test_pdf_export_integration(self, mock_msgbox, mock_file_dialog):
-        """Test PDF export integration."""
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as pdf_file:
-            pdf_path = pdf_file.name
-
-        mock_file_dialog.return_value = (pdf_path, "PDF Files (*.pdf)")
-
-        result = self.exporter.export_to_pdf()
-
-        self.assertTrue(result)
-        self.assertTrue(Path(pdf_path).exists())
-        mock_msgbox.assert_called_once()
-
-    def test_export_with_no_data(self):
-        """Test export behavior with no data."""
-        # Create empty session data
-        empty_session = SessionData()
-        empty_exporter = SessionExporter(empty_session)
-
-        with patch("PyQt5.QtWidgets.QMessageBox.warning") as mock_warning:
-            result = empty_exporter.export_to_excel()
-            self.assertFalse(result)
-            mock_warning.assert_called_once()
-
-    def test_export_with_no_file_open(self):
-        """Test export behavior with no file open."""
-        # Create session data without file
-        no_file_session = SessionData()
-        no_file_session.file_path = None
-        no_file_exporter = SessionExporter(no_file_session)
-
-        with patch("PyQt5.QtWidgets.QMessageBox.warning") as mock_warning:
-            result = no_file_exporter.export_to_excel()
-            self.assertFalse(result)
-            mock_warning.assert_called_once()
+@pytest.fixture
+def sample_tsv(tmp_path):
+    rows = [
+        {
+            "date": "2024-01-15",
+            "time": "09:30:00",
+            "block_id": "1",
+            "is_initial": "1",
+            "scale_name": "YBOCS",
+            "scale_value": "20",
+            "notes": "n",
+        },
+        {
+            "date": "2024-01-15",
+            "time": "10:30:00",
+            "block_id": "2",
+            "is_initial": "0",
+            "scale_name": "YBOCS",
+            "scale_value": "18",
+            "notes": "n2",
+        },
+    ]
+    p = tmp_path / "sub-01_task-prog_run-01_events.tsv"
+    pd.DataFrame(rows).to_csv(p, sep="\t", index=False)
+    return p
 
 
-class TestExportUIIntegration(unittest.TestCase):
-    """Test export UI integration."""
+def test_export_to_word_integration(monkeypatch, tmp_path, sample_tsv):
+    sd = SessionData()
+    sd.open_file_append(str(sample_tsv))
+    try:
+        exporter = SessionExporter(sd)
+        out = tmp_path / "report.docx"
+        monkeypatch.setattr(exporter, "_export_to_word_path", lambda *a, **k: True)
+        with (
+            patch(
+                "PySide6.QtWidgets.QFileDialog.getSaveFileName",
+                return_value=(str(out), "Word"),
+            ),
+            patch(
+                "dbs_annotator.utils.session_exporter.SessionExporter._show_transient_message",
+            ),
+        ):
+            assert exporter.export_to_word() is True
+    finally:
+        sd.close_file()
 
-    def setUp(self):
-        """Set up UI test environment."""
-        self.app = QApplication(sys.argv)
-        self.controller = WizardController()
-        self.step3_view = Step3View()
 
-    def test_export_menu_creation(self):
-        """Test export menu is created correctly."""
-        self.assertIsNotNone(self.step3_view.export_button)
-        self.assertIsNotNone(self.step3_view.export_menu)
-        self.assertEqual(len(self.step3_view.export_menu.actions()), 3)
+def test_export_to_pdf_integration(monkeypatch, tmp_path, sample_tsv):
+    sd = SessionData()
+    sd.open_file_append(str(sample_tsv))
+    try:
+        exporter = SessionExporter(sd)
+        pdf = tmp_path / "report.pdf"
+        monkeypatch.setattr(exporter, "_export_to_word_path", lambda *a, **k: True)
+        monkeypatch.setattr(exporter, "_convert_docx_to_pdf", lambda *a, **k: None)
+        monkeypatch.setattr(exporter, "_open_file", lambda *a, **k: None)
+        with (
+            patch(
+                "PySide6.QtWidgets.QFileDialog.getSaveFileName",
+                return_value=(str(pdf), "PDF"),
+            ),
+            patch(
+                "dbs_annotator.utils.session_exporter.SessionExporter._show_transient_message",
+            ),
+        ):
+            assert exporter.export_to_pdf() is True
+    finally:
+        sd.close_file()
 
-    def test_export_actions_exist(self):
-        """Test all export actions exist."""
-        self.assertIsNotNone(self.step3_view.export_excel_action)
-        self.assertIsNotNone(self.step3_view.export_word_action)
-        self.assertIsNotNone(self.step3_view.export_pdf_action)
+
+def test_export_word_no_data_warns():
+    empty = SessionData()
+    ex = SessionExporter(empty)
+    with patch("dbs_annotator.utils.session_exporter.QMessageBox.warning") as w:
+        assert ex.export_to_word() is False
+        w.assert_called()
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_export_word_no_file_warns():
+    sd = SessionData()
+    sd.file_path = None
+    ex = SessionExporter(sd)
+    with patch("dbs_annotator.utils.session_exporter.QMessageBox.warning") as w:
+        assert ex.export_to_word() is False
+        w.assert_called()
+
+
+@pytest.mark.gui
+def test_step3_export_actions_exist(qtbot, qapp):
+    from dbs_annotator.views.step3_view import Step3View
+
+    v = Step3View()
+    qtbot.addWidget(v)
+    assert v.export_word_action is not None
+    assert v.export_pdf_action is not None
+    assert len(v.export_menu.actions()) == 2

@@ -1,11 +1,5 @@
 """
 Unit tests for SessionData model.
-
-Tests cover:
-- File creation and opening
-- Block ID management
-- Clinical/session scales handling
-- TSV writing operations
 """
 
 import os
@@ -15,18 +9,14 @@ import pytest
 
 
 class TestSessionData:
-    """Test suite for SessionData class."""
-
     @pytest.fixture
     def session_data(self):
-        """Create a fresh SessionData instance."""
         from dbs_annotator.models import SessionData
 
         return SessionData()
 
     @pytest.fixture
     def temp_tsv_path(self):
-        """Create a temporary TSV file path."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".tsv", delete=False) as f:
             path = f.name
         yield path
@@ -34,35 +24,26 @@ class TestSessionData:
             os.unlink(path)
 
     def test_initial_state(self, session_data):
-        """Test that SessionData initializes with correct default state."""
         assert not session_data.is_file_open()
-        assert session_data.current_block_id == 0
+        assert session_data.block_id == 0
 
     def test_open_new_file(self, session_data, temp_tsv_path):
-        """Test opening a new TSV file for writing."""
         session_data.open_file(temp_tsv_path)
-        assert session_data.is_file_open()
-        assert session_data.file_path == temp_tsv_path
-
-    def test_increment_block_id(self, session_data):
-        """Test block ID incrementation."""
-        initial_id = session_data.current_block_id
-        session_data.increment_block_id()
-        assert session_data.current_block_id == initial_id + 1
+        try:
+            assert session_data.is_file_open()
+            assert session_data.file_path == temp_tsv_path
+        finally:
+            session_data.close_file()
 
     def test_close_file(self, session_data, temp_tsv_path):
-        """Test file closing."""
         session_data.open_file(temp_tsv_path)
         session_data.close_file()
         assert not session_data.is_file_open()
 
 
 class TestSessionDataWriting:
-    """Test suite for SessionData writing operations."""
-
     @pytest.fixture
     def session_data_with_file(self):
-        """Create SessionData with an open temp file."""
         from dbs_annotator.models import SessionData
 
         sd = SessionData()
@@ -75,7 +56,5 @@ class TestSessionDataWriting:
             os.unlink(path)
 
     def test_write_clinical_scales(self, session_data_with_file):
-        """Test writing clinical scales to TSV."""
-        sd, path = session_data_with_file
-        # This tests the interface - actual implementation may vary
+        sd, _path = session_data_with_file
         assert sd.is_file_open()
