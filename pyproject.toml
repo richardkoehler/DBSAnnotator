@@ -1,5 +1,5 @@
 [project]
-name = "clinical-dbs-annotator"
+name = "dbs-annotator"
 description = "A graphical user interface for annotating DBS clinical programming sessions"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -25,23 +25,25 @@ dependencies = [
     "python-docx>=1.1",
     "docx2pdf>=0.1.8",
     "pydantic>=2.0",
-    "pyqtgraph>=0.14.0",
     "pyside6>=6.11.0",
+    "matplotlib>=3.5",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-qt>=4.4.0",
-    "pytest-cov>=4.1.0",
+    "pytest>=9.0.3",
+    "pytest-qt>=4.5.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.1.0",
-    # "mypy>=1.8.0",
     "pre-commit>=3.6",
+    "pre-commit-uv>=4.2.1",    
+    "ty>=0.0.29",
+    "pandas-stubs>=3.0.0.260204",
+    "pyside6-stubs>=6.7.3.0",
 ]
 build = [
-    "pyinstaller>=6.15.0",
-    "opencv-python-headless>=4.12.0.88",
-    "nuitka>=4.0.7",
+    "briefcase>=0.3.26",
 ]
 docs = [
     "sphinx>=9.0.4",
@@ -49,22 +51,22 @@ docs = [
 ]
 
 [project.scripts]
-clinical-dbs-annotator = "clinical_dbs_annotator.__main__:main"
+dbs-annotator = "dbs_annotator.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/bml/clinical-dbs-annotator"
-Repository = "https://github.com/bml/clinical-dbs-annotator"
-Documentation = "https://github.com/bml/clinical-dbs-annotator/blob/main/README.md"
+Homepage = "https://github.com/bml/dbs-annotator"
+Repository = "https://github.com/bml/dbs-annotator"
+Documentation = "https://github.com/bml/dbs-annotator/blob/main/README.md"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "src/clinical_dbs_annotator/__init__.py"
+path = "src/dbs_annotator/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/clinical_dbs_annotator"]
+packages = ["src/dbs_annotator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -73,10 +75,26 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--verbose",
-    "--cov=clinical_dbs_annotator",
+    "--timeout=3",
+    "--cov=dbs_annotator",
     "--cov-report=html",
     "--cov-report=term-missing",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+markers = [
+    "gui: Qt GUI / widget tests",
+    "integration: cross-module behavior",
+    "slow: longer GUI or lazy-loaded wizard flows; skip locally with pytest -m \"not slow\"",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+omit = ["*/tests/*"]
 
 [tool.ruff]
 line-length = 88
@@ -105,19 +123,25 @@ ignore = [
     "E501",  # line too long (handled by formatter/line-length)
 ]
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-strict_optional = true
+[tool.uv]
+exclude-newer = "1 week"
 
-[[tool.mypy.overrides]]
-module = "PySide6.*"
-ignore_missing_imports = true
+# BeeWare Briefcase: native installers (Windows MSI / macOS .app + DMG).
+# App entrypoint: `python -m dbs_annotator` (see src/dbs_annotator/__main__.py).
+# Project [project] metadata (version via Hatch, dependencies) is merged by Briefcase.
+[tool.briefcase]
+project_name = "DBS Annotator"
+bundle = "ch.wysscenter.dbsannotator"
+# Briefcase requires a static version here even when [project] uses dynamic version from Hatch.
+version = "0.3.0"
+license = { file = "LICENSE" }
+
+[tool.briefcase.app.dbs_annotator]
+formal_name = "DBSAnnotator"
+description = "A graphical user interface for annotating DBS clinical programming sessions"
+sources = ["src/dbs_annotator", "icons", "styles"]
+icon = "icons/logoneutral"
+installer_icon = "icons/logoneutral"
+
+[tool.briefcase.app.dbs_annotator.macOS]
+universal_build = false

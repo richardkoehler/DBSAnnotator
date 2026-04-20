@@ -14,7 +14,7 @@ class TestResourcePath:
 
     def test_resource_path_package_relative(self):
         """Test that config files inside package are found."""
-        from clinical_dbs_annotator.utils.resources import resource_path
+        from dbs_annotator.utils.resources import resource_path
 
         # Test config folder that was moved inside package
         config_path = resource_path("config/session_scales_presets.json")
@@ -22,13 +22,12 @@ class TestResourcePath:
         assert os.path.exists(config_path) or "config" in config_path
 
     def test_resource_path_styles(self):
-        """Test that styles directory is accessible."""
-        from clinical_dbs_annotator.utils.resources import resource_path
+        """Test that QSS theme files resolve (repo-root or package `styles/`)."""
+        from dbs_annotator.utils.resources import resource_path
 
-        # Styles are still in project root
         styles_path = resource_path("styles/light_theme.qss")
-        # Path should be constructed correctly
         assert "styles" in styles_path
+        assert os.path.exists(styles_path)
 
 
 class TestPackageDirectory:
@@ -36,8 +35,8 @@ class TestPackageDirectory:
 
     def test_package_dir_is_cached(self):
         """Test that _PACKAGE_DIR is properly set."""
-        from clinical_dbs_annotator.utils import resources
+        from dbs_annotator.utils import resources
 
         assert hasattr(resources, "_PACKAGE_DIR")
         assert os.path.isdir(resources._PACKAGE_DIR)
-        assert "clinical_dbs_annotator" in resources._PACKAGE_DIR
+        assert "dbs_annotator" in resources._PACKAGE_DIR
