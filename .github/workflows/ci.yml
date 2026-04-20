@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: Detect code/docs file changes
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             code:
@@ -116,7 +116,7 @@ jobs:
     steps:
       - name: Detect source and fragment changes
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             code:
