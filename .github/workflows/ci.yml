@@ -38,6 +38,120 @@ jobs:
         run: |
           uv audit
 
+  docs-touch-gate:
+    name: Docs touch gate
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      pull-requests: read
+
+    steps:
+      - name: Detect code/docs file changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'src/**'
+            docs:
+              - 'docs/**'
+              - 'README.md'
+              - 'CHANGELOG.md'
+              - 'CONTRIBUTING.md'
+
+      - name: Enforce docs update for code changes
+        uses: actions/github-script@v7
+        env:
+          CODE_CHANGED: ${{ steps.changes.outputs.code }}
+          DOCS_CHANGED: ${{ steps.changes.outputs.docs }}
+        with:
+          script: |
+            const labels = (context.payload.pull_request?.labels ?? []).map((l) => l.name);
+            const hasSkipLabel = labels.includes("no-docs") || labels.includes("internal-only");
+            const codeChanged = process.env.CODE_CHANGED === "true";
+            const docsChanged = process.env.DOCS_CHANGED === "true";
+
+            if (!codeChanged) {
+              core.info("No src/ changes detected; docs-touch gate passes.");
+              return;
+            }
+            if (docsChanged) {
+              core.info("Code and docs changed together; docs-touch gate passes.");
+              return;
+            }
+            if (hasSkipLabel) {
+              core.info(
+                "No docs changes, but PR has no-docs/internal-only label; docs-touch gate passes."
+              );
+              return;
+            }
+
+            core.setFailed(
+              "This PR changes src/ without docs updates. " +
+              "Update docs/README/CHANGELOG/CONTRIBUTING, or apply the " +
+              "`no-docs`/`internal-only` label with reviewer approval."
+            );
+
+  towncrier-fragment-gate:
+    name: Changelog fragment gate (Towncrier)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      pull-requests: read
+
+    steps:
+      - name: Detect source and fragment changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - '.github/workflows/**'
+              - 'pyproject.toml'
+            fragment:
+              - 'newsfragments/*.added.md'
+              - 'newsfragments/*.changed.md'
+              - 'newsfragments/*.fixed.md'
+              - 'newsfragments/*.docs.md'
+            changelog:
+              - 'CHANGELOG.md'
+
+      - name: Enforce changelog fragment for code changes
+        uses: actions/github-script@v7
+        env:
+          CODE_CHANGED: ${{ steps.changes.outputs.code }}
+          FRAGMENT_CHANGED: ${{ steps.changes.outputs.fragment }}
+          CHANGELOG_CHANGED: ${{ steps.changes.outputs.changelog }}
+        with:
+          script: |
+            const labels = (context.payload.pull_request?.labels ?? []).map((l) => l.name);
+            const hasSkipLabel = labels.includes("skip-changelog") || labels.includes("internal-only");
+            const codeChanged = process.env.CODE_CHANGED === "true";
+            const fragmentChanged = process.env.FRAGMENT_CHANGED === "true";
+            const changelogChanged = process.env.CHANGELOG_CHANGED === "true";
+
+            if (!codeChanged) {
+              core.info("No relevant code/workflow changes; fragment gate passes.");
+              return;
+            }
+            if (fragmentChanged || changelogChanged) {
+              core.info("Fragment/changelog update detected; fragment gate passes.");
+              return;
+            }
+            if (hasSkipLabel) {
+              core.info(
+                "No changelog fragment, but PR has skip-changelog/internal-only label; gate passes."
+              );
+              return;
+            }
+
+            core.setFailed(
+              "This PR changes code/workflows without a changelog fragment. " +
+              "Add newsfragments/<PR>.(added|changed|fixed|docs).md, update CHANGELOG.md, " +
+              "or apply `skip-changelog`/`internal-only` with reviewer approval."
+            );
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -177,6 +291,10 @@ jobs:
       - name: Sync docs dependency group
         run: |
           uv sync --locked --group docs --no-dev
+
+      - name: Verify generated TSV schema docs are up to date
+        run: |
+          uv run python scripts/generate_tsv_schema_docs.py --check
 
       - name: Build HTML docs (warnings are errors)
         env:

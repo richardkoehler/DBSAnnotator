@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TextIO
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from ..config import TIMEZONE, TSV_COLUMNS
+from ..config import ANNOTATION_TSV_COLUMNS, TIMEZONE, TSV_COLUMNS
 from .clinical_scale import ClinicalScale, SessionScale
 from .stimulation import StimulationParameters
 
@@ -365,8 +365,8 @@ class SessionData:
         # Create the file with headers
         self.tsv_file = open(filepath, "w", newline="", encoding="utf-8")
 
-        # Simple header: date, time, and annotation
-        fieldnames = ["date", "time", "timezone", "annotation"]
+        # Simple header: date, time, timezone, and annotation.
+        fieldnames = list(ANNOTATION_TSV_COLUMNS)
 
         self.tsv_writer = csv.DictWriter(
             self.tsv_file,
@@ -404,7 +404,7 @@ class SessionData:
                 )
                 fieldnames = None
 
-        fieldnames = fieldnames or ["date", "time", "timezone", "annotation"]
+        fieldnames = fieldnames or list(ANNOTATION_TSV_COLUMNS)
 
         self.tsv_writer = csv.DictWriter(
             self.tsv_file,

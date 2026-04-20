@@ -30,7 +30,9 @@ There is also a **Free Annotations** mode for quick timestamped text annotations
 
 ### Output Format
 
-Data is saved as TSV with columns: `date`, `time`, `block_id`, `is_initial`, `session_ID`, `electrode_model`, `scale_name`, `scale_value`, stimulation parameters (frequency, contacts, amplitude, pulse width per side), `group`, and `notes`.
+Data is saved as TSV. The canonical schema is documented in
+[`docs/output_format.rst`](docs/output_format.rst) and auto-generated from the
+code-level constants in `dbs_annotator.config` to prevent drift.
 
 ## Contributing
 

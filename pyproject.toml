@@ -43,6 +43,7 @@ dev = [
     "ty>=0.0.29",
     "pandas-stubs>=3.0.0.260204",
     "pyside6-stubs>=6.7.3.0",
+    "towncrier>=24.8.0",
 ]
 build = ["briefcase>=0.3.26"]
 docs = [
@@ -143,6 +144,37 @@ quiet = false
 
 [tool.uv]
 exclude-newer = "1 week"
+
+[tool.towncrier]
+package = "dbs_annotator"
+package_dir = "src"
+directory = "newsfragments"
+filename = "CHANGELOG.md"
+template = "newsfragments/template.md.jinja"
+start_string = "## [Unreleased]"
+title_format = "## [{version}] - {project_date}"
+issue_format = "#{issue}"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "docs"
+name = "Documentation"
+showcontent = true
 
 # BeeWare Briefcase: native installers (Windows MSI / macOS .app + DMG).
 # App entrypoint: `python -m dbs_annotator` (see src/dbs_annotator/__main__.py).

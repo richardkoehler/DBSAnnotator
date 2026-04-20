@@ -264,8 +264,9 @@ Before Submitting
 ~~~~~~~~~~~~~~~~~
 
 1. **Update documentation** in ``docs/`` when user-visible behaviour changes.
-2. **Update** ``CHANGELOG.md`` under ``[Unreleased]`` using the Keep a
-   Changelog format.
+2. **Add a Towncrier fragment** under ``newsfragments/`` (for example
+   ``newsfragments/<PR>.added.md`` or ``newsfragments/<PR>.fixed.md``).
+   ``CHANGELOG.md`` is assembled from fragments at release time.
 3. **Add or update tests** for new functionality.
 4. **Run the local quality gate**: ``ruff format``, ``ruff check``,
    ``ty check``, ``pytest``.
@@ -301,7 +302,8 @@ When creating a pull request, please include:
 - Code follows the project style (ruff, ty clean).
 - Tests added or updated and passing locally.
 - Documentation updated (``docs/`` and/or ``README.md``).
-- ``CHANGELOG.md`` updated under ``[Unreleased]``.
+- A ``newsfragments/<PR>.(added|changed|fixed|docs).md`` entry was added,
+  or the PR is explicitly labeled ``skip-changelog`` / ``internal-only``.
 - ``uv.lock`` regenerated if dependencies changed.
 
 Review Process
@@ -382,8 +384,11 @@ Release Process
    ``src/dbs_annotator/__init__.py`` (Hatch reads this as the distribution
    version) and, if it changed, ``[tool.briefcase].version`` in
    ``pyproject.toml``. These two values must match.
-2. Move the ``[Unreleased]`` section of ``CHANGELOG.md`` to a new
-   ``[X.Y.Z] - YYYY-MM-DD`` section.
+2. Build ``CHANGELOG.md`` from Towncrier fragments:
+
+   .. code-block:: bash
+
+      uv run towncrier build --yes --version X.Y.Z --date YYYY-MM-DD
 3. Open a release PR, land it on ``main``, then push the matching
    ``vX.Y.Z`` tag.
 4. The ``CD - Create GitHub Release`` workflow builds Python wheels/sdist and

@@ -79,6 +79,14 @@ TSV_COLUMNS = [
     "notes",
 ]
 
+# Annotations-only TSV file configuration.
+ANNOTATION_TSV_COLUMNS = [
+    "date",
+    "time",
+    "timezone",
+    "annotation",
+]
+
 # Timezone configuration
 TIMEZONE = "local"
 

@@ -51,6 +51,18 @@ jobs:
           fi
           echo "CHANGELOG.md contains a section for ${version}."
 
+      - name: Ensure no unreleased Towncrier fragments remain
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          fragments=(newsfragments/*.added.md newsfragments/*.changed.md newsfragments/*.fixed.md newsfragments/*.docs.md)
+          if [ "${#fragments[@]}" -gt 0 ]; then
+            echo "::error::Unreleased Towncrier fragments remain. Build CHANGELOG.md before tagging:" >&2
+            printf ' - %s\n' "${fragments[@]}" >&2
+            exit 1
+          fi
+
   version-consistency:
     name: Version is consistent across sources
     runs-on: ubuntu-latest
@@ -120,6 +132,33 @@ jobs:
           name: python-dist
           path: dist/*
           if-no-files-found: error
+
+  publish-docs:
+    name: Trigger Read the Docs tag build
+    runs-on: ubuntu-latest
+    needs:
+      - changelog-gate
+      - version-consistency
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+
+    steps:
+      - name: Trigger RTD build for this tag version
+        shell: bash
+        env:
+          READTHEDOCS_TOKEN: ${{ secrets.READTHEDOCS_TOKEN }}
+          # Update if your RTD slug differs.
+          READTHEDOCS_PROJECT_SLUG: app-clinicaldbsannot
+        run: |
+          set -euo pipefail
+          if [ -z "${READTHEDOCS_TOKEN:-}" ]; then
+            echo "READTHEDOCS_TOKEN is not configured; skipping RTD trigger."
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME}"
+          echo "Triggering RTD build for project=${READTHEDOCS_PROJECT_SLUG}, version=${version}"
+          curl -fsS -X POST \
+            -H "Authorization: Token ${READTHEDOCS_TOKEN}" \
+            "https://readthedocs.org/api/v3/projects/${READTHEDOCS_PROJECT_SLUG}/versions/${version}/builds/"
 
   build-briefcase-msi:
     name: Build Briefcase MSI (Windows)
