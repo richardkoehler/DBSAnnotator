@@ -72,6 +72,9 @@ cd App_ClinicalDBSAnnot
 # With uv (recommended)
 uv sync
 
+# Install git hooks (pre-commit runs with pre-commit-uv from dev dependencies)
+uv run pre-commit install
+
 # Or with pip
 pip install -e .
 ```
