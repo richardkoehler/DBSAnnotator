@@ -141,6 +141,7 @@ quiet = false
 
 [tool.uv]
 exclude-newer = "1 week"
+exclude-newer-package = { lxml = false }
 
 [tool.towncrier]
 package = "dbs_annotator"
