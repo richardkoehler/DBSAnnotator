@@ -42,7 +42,7 @@ def resource_path(relative_path: str) -> str:
     if os.path.exists(sibling_path):
         return sibling_path
 
-    # Editable / source checkout: repo-root `icons/` (two levels above the package dir).
+    # Editable / source checkout: repo-root `icons/logosimple/` (two levels above pkg).
     repo_root = os.path.abspath(os.path.join(_PACKAGE_DIR, os.pardir, os.pardir))
     repo_path = os.path.join(repo_root, relative_path)
     if os.path.exists(repo_path):

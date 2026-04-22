@@ -194,8 +194,8 @@ It supports clinicians and researchers by organizing session information,
 tracking stimulation settings, and generating standardized exports and reports.
 """
 sources = ["src/dbs_annotator", "icons", "styles"]
-icon = "icons/logoneutral"
-installer_icon = "icons/logoneutral"
+icon = "icons/logosimple/logosimple"
+installer_icon = "icons/logosimple/logosimple"
 requirement_installer_args = [
     "--index-url",
     "https://pypi.org/simple",

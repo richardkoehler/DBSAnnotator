@@ -32,10 +32,10 @@ APP_ISSUES_URL = f"{APP_REPOSITORY_URL}/issues"
 UPDATE_FEEDBACK_EMAIL = "lucia.poma@wysscenter.ch"
 
 # File paths (relative to executable)
-ICON_FILENAME = "logoneutral.png"
-ICO_FILENAME = "logoneutral.ico"
+ICON_FILENAME = "logosimple.png"
+ICO_FILENAME = "logosimple.ico"
 STYLE_FILENAME = "style.qss"
-ICONS_DIR = "icons"
+ICONS_DIR = "icons/logosimple"
 
 # Window size ratios for responsive design
 WINDOW_SIZE_RATIO = {
