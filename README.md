@@ -1,8 +1,8 @@
 # DBS Annotator
 
-[![CI](https://github.com/Brain-Modulation-Lab/App_ClinicalDBSAnnot/actions/workflows/ci.yml/badge.svg)](https://github.com/Brain-Modulation-Lab/App_ClinicalDBSAnnot/actions/workflows/ci.yml)
-[![Docs Health](https://github.com/Brain-Modulation-Lab/App_ClinicalDBSAnnot/actions/workflows/docs-health.yml/badge.svg)](https://github.com/Brain-Modulation-Lab/App_ClinicalDBSAnnot/actions/workflows/docs-health.yml)
-[![Release Drafter](https://github.com/Brain-Modulation-Lab/App_ClinicalDBSAnnot/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/Brain-Modulation-Lab/App_ClinicalDBSAnnot/actions/workflows/release-drafter.yml)
+[![CI](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/ci.yml/badge.svg)](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/ci.yml)
+[![Docs Health](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/docs-health.yml/badge.svg)](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/docs-health.yml)
+[![Release Drafter](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/release-drafter.yml)
 
 A desktop application for annotating Deep Brain Stimulation (DBS) clinical programming sessions. Built for clinicians and researchers working with DBS systems (Medtronic Percept and others).
 
@@ -12,6 +12,16 @@ A desktop application for annotating Deep Brain Stimulation (DBS) clinical progr
 ## For End Users
 
 Releases ship as **Briefcase-generated** artifacts (for example ZIP/MSI on Windows and DMG on macOS). Follow the instructions for the artifact you downloaded.
+
+### Windows — install from GitHub (PowerShell)
+
+Unsigned **MSI** can trigger **SmartScreen**; the release **portable `.zip`** (same app as the MSI) avoids the MSI path. When that `.zip` is attached to a release, you can install per-user under `%LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app` and get Start Menu shortcut with one line (from PowerShell, after `main` has `scripts/Install-DBSAnnotator.ps1` — see the script if you are testing a feature branch, use that branch in the URL instead of `main`):
+
+```powershell
+iex (iwr -UseBasicParsing -UserAgent "DBSAnnotator-Install/1" -Uri "https://raw.githubusercontent.com/Brain-Modulation-Lab/App_ClinicalDBSAnnot/main/scripts/Install-DBSAnnotator.ps1").Content
+```
+
+Optional: add a desktop shortcut with `-AddDesktopShortcut`. The script picks the **newest** release that includes a `DBSAnnotator-*.zip` file (prereleases included). If your release has no `.zip` yet, tag again after [CD](.github/workflows/release.yml) has uploaded it, or run the same script with `-VersionTag vX.Y.Z` once that asset exists.
 
 ## What It Does
 
@@ -65,7 +75,7 @@ We welcome contributions! Please see the [Contributing Guide](CONTRIBUTING.md) f
 ### Setup
 
 ```bash
-cd App_ClinicalDBSAnnot
+cd DBSAnnotator
 
 # With uv (recommended)
 uv sync
@@ -88,7 +98,7 @@ dbs-annotator
 ### Project Structure
 
 ```
-App_ClinicalDBSAnnot/
+DBSAnnotator/
 ├── src/dbs_annotator/   # Application source code
 │   ├── models/                   #   Data models (session, scales, stimulation, electrode)
 │   ├── views/                    #   Qt views (step0-3, annotations, wizard window)
