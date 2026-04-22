@@ -72,6 +72,20 @@ macOS
 3. On first launch, right-click the app icon → **Open** → **Open** again in the
    dialog.  This is required once because the app is not notarised.
 
+**Or** use the install script from the repository (see the README: ``curl`` /
+``wget`` pipe to ``sh``), which prefers the release **raw** ``.tar.gz`` when
+present, else the ``.dmg``.
+
+----
+
+Linux (x86_64)
+---------------
+
+On **x86_64** Linux distributions, you can use the same shell script (README) to
+install the **raw** ``.tar.gz`` or the published ``.deb`` from GitHub
+Releases. You need **Python 3** for the script. Non-x86_64 is not supported by
+the current pre-built artifacts.
+
 ----
 
 Updating

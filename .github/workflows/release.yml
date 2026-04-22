@@ -203,7 +203,7 @@ jobs:
         run: |
           uv export --locked --format requirements.txt --no-dev --no-hashes --no-emit-project --no-emit-workspace --output-file constraints-briefcase.txt
 
-      - name: Briefcase create / build / package (msi)
+      - name: Briefcase create / build / package (msi + zip raw)
         env:
           QT_QPA_PLATFORM: offscreen
           PIP_INDEX_URL: https://pypi.org/simple
@@ -213,6 +213,18 @@ jobs:
           uv run briefcase create --no-input
           uv run briefcase build --no-input
           uv run briefcase package --no-input -p msi
+          uv run briefcase package --no-input -p zip
+      - name: Name Windows raw portable archive
+        shell: pwsh
+        run: |
+          $v = $env:GITHUB_REF_NAME -replace '^v',''
+          $z = Get-ChildItem -Path dist -Filter *.zip -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $z) { throw "No .zip in dist/ after briefcase package -p zip" }
+          $raw = "DBSAnnotator-$v-windows-x86_64-raw.zip"
+          if ($z.Name -ne $raw) {
+            Move-Item -LiteralPath $z.FullName -Destination (Join-Path "dist" $raw) -Force
+          }
+          Write-Host "Windows raw: dist/$raw"
 
       # step.if cannot use secrets.* (actionlint / GHA); probe via env then gate signing.
       - name: Detect Windows signing secrets
@@ -365,6 +377,21 @@ jobs:
             xcrun stapler staple "$dmg"
           done
 
+      - name: Create macOS raw .app bundle archive (no DMG)
+        shell: bash
+        run: |
+          set -euo pipefail
+          v="${GITHUB_REF_NAME#v}"
+          app_path=$(find build/dbs_annotator/macos -name "DBSAnnotator.app" -type d 2>/dev/null | head -1)
+          if [ -z "$app_path" ]; then
+            echo "::error::DBSAnnotator.app not found under build/dbs_annotator/macos" >&2
+            exit 1
+          fi
+          parent=$(dirname "$app_path")
+          out="${GITHUB_WORKSPACE}/dist/DBSAnnotator-${v}-macos-arm64-raw.tar.gz"
+          (cd "$parent" && tar -czf "$out" "DBSAnnotator.app")
+          echo "macOS raw: dist/DBSAnnotator-${v}-macos-arm64-raw.tar.gz"
+
       - name: Upload Briefcase macOS artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -418,12 +445,30 @@ jobs:
           uv run briefcase build linux system --no-input
           uv run briefcase package linux system --no-input
 
+      - name: Create Linux raw app tree archive (no .deb)
+        shell: bash
+        run: |
+          set -euo pipefail
+          v="${GITHUB_REF_NAME#v}"
+          app_dir=$(find build/dbs_annotator/linux -path "*/dbs-annotator/app" -type d 2>/dev/null | head -1)
+          if [ -z "$app_dir" ]; then
+            app_dir=$(find build/dbs_annotator/linux -type d -name app 2>/dev/null | head -1)
+          fi
+          if [ -z "$app_dir" ]; then
+            echo "::error::No application 'app' tree under build/dbs_annotator/linux" >&2
+            exit 1
+          fi
+          parent=$(dirname "$app_dir")
+          out="${GITHUB_WORKSPACE}/dist/dbs-annotator_${v}_linux_x86_64-raw.tar.gz"
+          (cd "$parent" && tar -czf "$out" "$(basename "$app_dir")")
+          echo "Linux raw: dist/dbs-annotator_${v}_linux_x86_64-raw.tar.gz"
+
       - name: Upload Briefcase Linux artifacts
         uses: actions/upload-artifact@v7
         with:
           name: briefcase-linux-x86_64
           path: dist/*
-          if-no-files-found: warn
+          if-no-files-found: error
 
   release:
     name: Create GitHub Release and upload artifacts
@@ -440,10 +485,15 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: release-assets
+          merge-multiple: true
 
       - name: Create GitHub Release and upload artifacts
         uses: softprops/action-gh-release@v3
         with:
-          files: release-assets/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: false
+          generate_release_notes: true
+          working_directory: release-assets
+          files: |
+            **/*
