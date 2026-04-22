@@ -16,11 +16,13 @@ clinician or researcher through the full session workflow — from initial
 electrode configuration and baseline scales, through real-time stimulation
 adjustments, to the automatic generation of structured Word and PDF reports.
 
-Developed at the **Brain Modulation Lab, Massachusetts General Hospital**.
+Developed at the **Brain Modulation Lab, Massachusetts General Hospital** in Boston, USA
+and at the **Wyss Center for Bio and Neuroengineering** in Geneva, Switzerland.
 
 .. note::
-   Version |release|. Publisher: Wyss Center for Bio and Neuroengineering.
-   Contact: lucia.poma@wysscenter.ch
+   | Version |release|.
+   | Publisher: Wyss Center for Bio and Neuroengineering.
+   | Contact: lucia.poma@wysscenter.ch
 
 ----
 
