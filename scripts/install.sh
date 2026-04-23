@@ -1,15 +1,5 @@
-#!/usr/bin/env bash
-# Install DBSAnnotator from GitHub Releases (Linux x86_64 or macOS).
-# Prefer official raw .tar.gz; else .deb (Linux) or .dmg (macOS).
-#
-#   curl -LsSf https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.sh | sh
-#   wget -qO- https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.sh | sh
-#   DBS_ANNOTATOR_VERSION=v0.4.0a1 sh install.sh
-#
-# Env: DBS_ANNOTATOR_INSTALL_REPO (default Brain-Modulation-Lab/DBSAnnotator)
-#      GITHUB_TOKEN (optional) for higher API rate limit
-
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 REPO="${DBS_ANNOTATOR_INSTALL_REPO:-Brain-Modulation-Lab/DBSAnnotator}"
 UA="DBSAnnotator-Unix-Install/1.0 (+https://github.com/${REPO})"
@@ -59,9 +49,7 @@ download() {
   fi
 }
 
-# Prints two lines: KIND (tar|deb|dmg) and URL
 resolve_asset() {
-  # shellcheck disable=SC2016
   VER_TAG="${VER_TAG:-}" python3 <<'PY'
 import os, re, sys, urllib.request, urllib.parse
 
@@ -137,13 +125,35 @@ main()
 PY
 }
 
+linux_pick_exe() {
+  _p=$1
+  for _n in dbs-annotator dbs_annotator DBSAnnotator; do
+    for _d in "$_p/src" "$_p/bin" "$_p"; do
+      _c="$_d/$_n"
+      if [ -f "$_c" ] || [ -L "$_c" ]; then
+        [ -x "$_c" ] || chmod u+x "$_c" 2>/dev/null || true
+        if [ -x "$_c" ]; then
+          echo "$_c"
+          return 0
+        fi
+      fi
+    done
+  done
+  _f=$(find "$_p" -type f \( -name dbs-annotator -o -name dbs_annotator -o -name DBSAnnotator \) 2>/dev/null | head -n 1) || true
+  if [ -n "$_f" ]; then
+    [ -x "$_f" ] || chmod u+x "$_f" 2>/dev/null || true
+  fi
+  if [ -n "$_f" ] && [ -x "$_f" ]; then
+    echo "$_f"
+  fi
+  return 0
+}
+
 install_mac_tar() {
-  local archive=$1
   work=$(mktemp -d)
-  # shellcheck disable=SC2064
-  trap "rm -rf $work" EXIT
-  tar -xzf "$archive" -C "$work"
-  app=$(find "$work" -name "DBSAnnotator.app" -type d | head -1)
+  trap 'rm -rf -- "$work"' EXIT
+  tar -xzf "$1" -C "$work"
+  app=$(find "$work" -name "DBSAnnotator.app" -type d | head -n 1)
   if [ -z "$app" ]; then
     echo "DBSAnnotator.app not in archive" >&2; exit 1
   fi
@@ -164,10 +174,9 @@ install_mac_tar() {
 }
 
 install_mac_dmg() {
-  local dmg=$1
   mp=$(mktemp -d "${TMPDIR:-/tmp}/dbs-dmg-XXXXXX")
-  hdiutil attach -nobrowse -mountpoint "$mp" "$dmg"
-  a=$(find "$mp" -name "DBSAnnotator.app" -type d -maxdepth 5 | head -1)
+  hdiutil attach -nobrowse -mountpoint "$mp" "$1"
+  a=$(find "$mp" -name "DBSAnnotator.app" -type d -maxdepth 5 | head -n 1)
   if [ -z "$a" ]; then
     hdiutil detach "$mp" 2>/dev/null || true
     echo "DBSAnnotator.app not in DMG" >&2; exit 1
@@ -185,16 +194,14 @@ install_mac_dmg() {
 }
 
 install_linux_tar() {
-  local archive=$1
   prefix=${INSTALL_PREFIX:-"$HOME/.local/lib/dbs-annotator"}
   work=$(mktemp -d)
-  # shellcheck disable=SC2064
-  trap "rm -rf $work" EXIT
-  tar -xzf "$archive" -C "$work"
+  trap 'rm -rf -- "$work"' EXIT
+  tar -xzf "$1" -C "$work"
   if [ -d "$work/app" ]; then
     src="$work/app"
   else
-    src=$(find "$work" -type d -name app | head -1)
+    src=$(find "$work" -type d -name app | head -n 1)
   fi
   if [ -z "$src" ] || [ ! -d "$src" ]; then
     echo "Expected app/ tree in archive" >&2; exit 1
@@ -204,13 +211,7 @@ install_linux_tar() {
   mv "$src" "$prefix"
   bin_dir="${HOME}/.local/bin"
   mkdir -p "$bin_dir"
-  exe=
-  for n in dbs-annotator DBSAnnotator; do
-    if [ -f "$prefix/src/$n" ]; then exe="$prefix/src/$n"; break; fi
-  done
-  if [ -z "$exe" ]; then
-    exe=$(find "$prefix" -type f \( -name dbs-annotator -o -name DBSAnnotator \) -perm -u+x 2>/dev/null | head -1) || true
-  fi
+  exe=$(linux_pick_exe "$prefix")
   if [ -z "$exe" ] || [ ! -x "$exe" ]; then
     echo "Could not find executable under $prefix" >&2; exit 1
   fi
@@ -223,14 +224,13 @@ install_linux_tar() {
 }
 
 install_linux_deb() {
-  local deb=$1
   if [ "$(id -u)" = 0 ]; then
-    dpkg -i "$deb" || apt-get install -f -y
+    dpkg -i "$1" || apt-get install -f -y
   else
     if ! command -v sudo >/dev/null 2>&1; then
       echo "Need root or sudo to install .deb" >&2; exit 1
     fi
-    sudo dpkg -i "$deb" || sudo apt-get install -f -y
+    sudo dpkg -i "$1" || sudo apt-get install -f -y
   fi
   echo "Installed system package from .deb"
 }
@@ -239,8 +239,8 @@ main() {
   if ! out=$(resolve_asset); then
     exit 1
   fi
-  _kind=$(printf '%s' "$out" | head -n1)
-  _url=$(printf '%s' "$out" | tail -n1)
+  _kind=$(printf '%s' "$out" | head -n 1)
+  _url=$(printf '%s' "$out" | tail -n 1)
 
   if [ "$DRY_RUN" = 1 ]; then
     echo "Would install: kind=$_kind"
