@@ -1,14 +1,12 @@
 #Requires -Version 5.1
-# Fetches DBSAnnotator-*.zip from GitHub Releases; installs to %LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app.
-# Optional: DBS_ANNOTATOR_NO_START_MENU=1 (truthy: 1, true, yes). Repo: DBS_ANNOTATOR_INSTALL_REPO.
+# DBSAnnotator-*.zip from GitHub Releases → %LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app + Start Menu shortcut. Override repo: DBS_ANNOTATOR_INSTALL_REPO.
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "Medium")]
 param(
     [string] $GitHubRepository = $(
         if ($env:DBS_ANNOTATOR_INSTALL_REPO) { $env:DBS_ANNOTATOR_INSTALL_REPO } else { "Brain-Modulation-Lab/DBSAnnotator" }
     ),
     [string] $VersionTag = "",
-    [string] $InstallRoot = "",
-    [switch] $NoStartMenuShortcut
+    [string] $InstallRoot = ""
 )
 
 Set-StrictMode -Version 3.0
@@ -21,13 +19,8 @@ function Install-DbsAnnotatorApp {
             if ($env:DBS_ANNOTATOR_INSTALL_REPO) { $env:DBS_ANNOTATOR_INSTALL_REPO } else { "Brain-Modulation-Lab/DBSAnnotator" }
         ),
         [string] $VersionTag = "",
-        [string] $InstallRoot = "",
-        [switch] $NoStartMenuShortcut
+        [string] $InstallRoot = ""
     )
-
-    if ($env:DBS_ANNOTATOR_NO_START_MENU -match '^(1|true|yes)$') {
-        $NoStartMenuShortcut = $true
-    }
 
     if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
         $InstallRoot = Join-Path $env:LOCALAPPDATA "WyssGeneva\DBSAnnotator\app"
@@ -92,7 +85,7 @@ set -VersionTag to a tag that has the .zip, or add the .zip to the release manua
     Write-Host "Asset:    $($asset.name) ($([math]::Round($asset.size / 1MB, 1)) MB)"
     Write-Host "Install:  $InstallRoot"
     if ($WhatIfPreference) {
-        Write-Host "What if:  would download, extract, copy files, add Start Menu shortcut (unless -NoStartMenuShortcut)."
+        Write-Host "What if:  would download, extract, copy files, add Start Menu shortcut."
         return
     }
     if (-not $PSCmdlet.ShouldProcess($InstallRoot, "Install DBSAnnotator (overwrite if present)")) {
@@ -129,17 +122,15 @@ set -VersionTag to a tag that has the .zip, or add the .zip to the release manua
         }
         $exe = Get-ChildItem -LiteralPath $InstallRoot -Recurse -Filter "DBSAnnotator.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
         if (-not $exe) { throw "DBSAnnotator.exe not found under $InstallRoot after install." }
-        if (-not $NoStartMenuShortcut) {
-            if ($PSCmdlet.ShouldProcess("Start Menu programs", "Create DBSAnnotator shortcut")) {
-                $programs = [Environment]::GetFolderPath("Programs")
-                if (-not (Test-Path $programs)) { New-Item -ItemType Directory -Path $programs -Force | Out-Null }
-                $wsh = New-Object -ComObject WScript.Shell
-                $lnk = $wsh.CreateShortcut((Join-Path $programs "DBSAnnotator.lnk"))
-                $lnk.TargetPath = $exe.FullName
-                $lnk.WorkingDirectory = $exe.DirectoryName
-                $lnk.IconLocation = $exe.FullName
-                $lnk.Save() | Out-Null
-            }
+        if ($PSCmdlet.ShouldProcess("Start Menu programs", "Create DBSAnnotator shortcut")) {
+            $programs = [Environment]::GetFolderPath("Programs")
+            if (-not (Test-Path $programs)) { New-Item -ItemType Directory -Path $programs -Force | Out-Null }
+            $wsh = New-Object -ComObject WScript.Shell
+            $lnk = $wsh.CreateShortcut((Join-Path $programs "DBSAnnotator.lnk"))
+            $lnk.TargetPath = $exe.FullName
+            $lnk.WorkingDirectory = $exe.DirectoryName
+            $lnk.IconLocation = $exe.FullName
+            $lnk.Save() | Out-Null
         }
         Write-Host "Done. Run:  $($exe.FullName)"
     } finally {

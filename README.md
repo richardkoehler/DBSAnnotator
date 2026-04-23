@@ -4,32 +4,32 @@
 [Docs Health](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/docs-health.yml)
 [Release Drafter](https://github.com/Brain-Modulation-Lab/DBSAnnotator/actions/workflows/release-drafter.yml)
 
-A desktop application for annotating Deep Brain Stimulation (DBS) clinical programming sessions. Built for clinicians and researchers working with DBS systems (Medtronic Percept and others).
+A desktop application for annotating Deep Brain Stimulation (DBS) programming sessions. Built for clinicians and researchers working with DBS systems.
 
-**Version:** derived from `dbs_annotator.__version__`
 **Publisher:** Wyss Center for Bio and Neuroengineering (contact: [lucia.poma@wysscenter.ch](mailto:lucia.poma@wysscenter.ch))
 
 ## For End Users
 
-Releases ship as **Briefcase-generated** artifacts (for example ZIP/MSI on Windows and DMG on macOS). Follow the instructions for the artifact you downloaded.
+You can find installation files for Windows (.msi), MacOS (.dmg) and Linux (.deb) under the [GitHub Releases](https://github.com/Brain-Modulation-Lab/DBSAnnotator/releases).
+However, note that the files are unsigned, so that a warning might pop up during installation. To proceed with installation, you must accept the risk and continue.
+In some cases, for example where your organization has strict settings, this might not be possible. In this case, try the install via PowerShell below.
 
-### Windows — install from GitHub (PowerShell)
+### Windows — install via PowerShell
 
-Unsigned **MSI** can trigger **SmartScreen**; the release **portable `.zip`** (same app as the MSI) avoids the MSI path. When that `.zip` is attached to a release, you can install per-user under `%LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app` and get a Start Menu shortcut with one line (from PowerShell; for a branch other than `main`, replace `main` in the URL):
-
-**Note:** `iex` only passes its own parameters — script switches (for example ``-VersionTag v0.4.0a2``) are not the same call. For parameters, use a local copy of `scripts/install.ps1` or: ``& ([scriptblock]::Create((iwr -UseBasicParsing -UserAgent "DBSAnnotator-Install/1" -Uri "https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1").Content)) -VersionTag v0.4.0a2``.
+In an **open PowerShell** window:
 
 ```powershell
-iex (iwr -UseBasicParsing -UserAgent "DBSAnnotator-Install/1" -Uri "https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1").Content
+irm https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1 | iex
 ```
 
-**No Start Menu shortcut:** set ``$env:DBS_ANNOTATOR_NO_START_MENU = "1"`` before the line above, or run with ``-NoStartMenuShortcut`` when using a script block / local `install.ps1`.
+From **cmd.exe** (or if execution policy blocks scripts):
 
-The script picks the **newest** release that includes a `DBSAnnotator-*.zip` file (prereleases included). If your release has no `.zip` yet, tag again after [CD](.github/workflows/release.yml) has uploaded it, or use `-VersionTag vX.Y.Z` once that asset exists.
+```bat
+powershell -ExecutionPolicy Bypass -NoProfile -Command "irm https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1 | iex"
+```
 
 ### macOS / Linux — shell install (curl / wget)
 
-When the release includes **raw** `.tar.gz` bundles (from CD) or a `.deb` / `.dmg`, you can install from the repo script (uses [GitHub Releases](https://github.com/Brain-Modulation-Lab/DBSAnnotator/releases); override repo with `DBS_ANNOTATOR_INSTALL_REPO` if needed):
 
 ```sh
 curl -LsSf https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.sh | sh
@@ -38,11 +38,6 @@ curl -LsSf https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/m
 ```sh
 wget -qO- https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.sh | sh
 ```
-
-Pin a tag: `DBS_ANNOTATOR_VERSION=v0.4.0a1 sh` or `./install.sh v0.4.0a1`. Preview only: `sh install.sh --dry-run`.
-
-- **Linux x86_64:** prefers `dbs-annotator_*_linux_x86_64-raw.tar.gz` (installs under `~/.local/lib/dbs-annotator` and symlinks `~/.local/bin/dbs-annotator`); otherwise `sudo dpkg -i` on the `.deb`.
-- **macOS (arm64 CI build):** prefers `DBSAnnotator-*-macos-arm64-raw.tar.gz` into `/Applications` or `~/Applications`; otherwise copies from the `.dmg`.
 
 ## What It Does
 
