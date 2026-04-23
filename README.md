@@ -15,7 +15,7 @@ Releases ship as **Briefcase-generated** artifacts (for example ZIP/MSI on Windo
 
 ### Windows — install from GitHub (PowerShell)
 
-Unsigned **MSI** can trigger **SmartScreen**; the release **portable `.zip`** (same app as the MSI) avoids the MSI path. When that `.zip` is attached to a release, you can install per-user under `%LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app` and get Start Menu shortcut with one line (from PowerShell, after `main` has `scripts/Install-DBSAnnotator.ps1` — see the script if you are testing a feature branch, use that branch in the URL instead of `main`):
+Unsigned **MSI** can trigger **SmartScreen**; the release **portable `.zip`** (same app as the MSI) avoids the MSI path. When that `.zip` is attached to a release, you can install per-user under `%LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app` and get Start Menu shortcut with one line (from PowerShell; for a branch other than `main`, replace `main` in the URL):
 
 ```powershell
 iex (iwr -UseBasicParsing -UserAgent "DBSAnnotator-Install/1" -Uri "https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1").Content

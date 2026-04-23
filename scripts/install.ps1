@@ -14,6 +14,8 @@
     -GitHubRepository or environment variable DBS_ANNOTATOR_INSTALL_REPO (format: "Owner/Name").
 
     Your release must include the portable .zip. If only an MSI exists, tag again after CI uploads the .zip.
+
+    README one-liner downloads this script from raw.githubusercontent.com (path ends in /scripts/install.ps1; use your branch instead of main if needed).
 #>
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "Medium")]
 param(

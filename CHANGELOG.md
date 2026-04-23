@@ -6,11 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 ## [0.4.0a2] - 2026-04-22
 
 ### Added
 
-- Add a Windows PowerShell installer (``scripts/Install-DBSAnnotator.ps1``) and README one-liner to install the portable release ``.zip`` from GitHub when the MSI is unsigned. ([#70](https://github.com/Brain-Modulation-Lab/DBSAnnotator/pull/70))
+- Add a Windows PowerShell installer (``scripts/install.ps1``) and README one-liner to install the portable release ``.zip`` from GitHub when the MSI is unsigned. ([#70](https://github.com/Brain-Modulation-Lab/DBSAnnotator/pull/70))
 - Add ``scripts/install.sh`` (curl/wget) to install from GitHub Releases on Linux x86_64 and macOS (raw ``.tar.gz`` when present, else ``.deb`` / ``.dmg``), with README and installation docs. ([#71](https://github.com/Brain-Modulation-Lab/DBSAnnotator/pull/71))
 ## [0.4.0a1] - 2026-04-22
 
