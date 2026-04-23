@@ -15,15 +15,21 @@ Releases ship as **Briefcase-generated** artifacts (for example ZIP/MSI on Windo
 
 ### Windows — install from GitHub (PowerShell)
 
-Unsigned **MSI** can trigger **SmartScreen**; the release **portable `.zip`** (same app as the MSI) avoids the MSI path. When that `.zip` is attached to a release, you can install per-user under `%LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app` and get a Start Menu shortcut with one line (from PowerShell; for a branch other than `main`, replace `main` in the URL):
+Unsigned **MSI** can trigger **SmartScreen**; the release **portable `.zip`** (same app as the MSI) avoids the MSI path. When that `.zip` is attached to a release, you can install per-user under `%LOCALAPPDATA%\WyssGeneva\DBSAnnotator\app` and get a Start Menu shortcut. Same pattern as [uv’s installer](https://docs.astral.sh/uv/getting-started/installation/) (`irm` fetches the script, `iex` runs it); replace `main` in the URL if you need another branch.
 
-**Note:** `iex` only passes its own parameters — script switches (for example ``-VersionTag v0.4.0a2``) are not the same call. For parameters, use a local copy of `scripts/install.ps1` or: ``& ([scriptblock]::Create((iwr -UseBasicParsing -UserAgent "DBSAnnotator-Install/1" -Uri "https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1").Content)) -VersionTag v0.4.0a2``.
+In an **open PowerShell** window:
 
 ```powershell
-iex (iwr -UseBasicParsing -UserAgent "DBSAnnotator-Install/1" -Uri "https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1").Content
+irm https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1 | iex
 ```
 
-**No Start Menu shortcut:** set ``$env:DBS_ANNOTATOR_NO_START_MENU = "1"`` before the line above, or run with ``-NoStartMenuShortcut`` when using a script block / local `install.ps1`.
+From **cmd.exe** (or if execution policy blocks scripts):
+
+```bat
+powershell -ExecutionPolicy Bypass -NoProfile -Command "irm https://raw.githubusercontent.com/Brain-Modulation-Lab/DBSAnnotator/main/scripts/install.ps1 | iex"
+```
+
+That one-liner only **downloads and runs** `install.ps1`. The script itself then calls the GitHub API, downloads the app `.zip`, and unpacks it — same idea as uv: the bootstrap line is short; the work happens inside the script. Optional parameters (``-VersionTag``, ``-GitHubRepository``) are not available on the `iex` line; save `scripts/install.ps1` and run e.g. ``.\install.ps1 -VersionTag v0.4.0a2`` or use ``& ([scriptblock]::Create((irm 'https://.../install.ps1'))) -VersionTag v0.4.0a2``.
 
 The script picks the **newest** release that includes a `DBSAnnotator-*.zip` file (prereleases included). If your release has no `.zip` yet, tag again after [CD](.github/workflows/release.yml) has uploaded it, or use `-VersionTag vX.Y.Z` once that asset exists.
 

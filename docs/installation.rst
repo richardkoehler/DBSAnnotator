@@ -32,12 +32,12 @@ Steps
    b. Double-click to launch — no further steps needed.
 
 4. **GitHub release with portable** ``.zip`` **(``DBSAnnotator-*.zip``):** to install
-   without using the unsigned MSI, run ``scripts/install.ps1`` (see the README
-   ``iex`` one-liner). Script parameters (for example ``-VersionTag``) need a local
-   file or ``& ([scriptblock]::Create((iwr …).Content)) …``. It unpacks under
+   without using the unsigned MSI, use the README one-liner
+   (``irm https://…/install.ps1 | iex``) or a saved copy of ``scripts/install.ps1``
+   (use parameters such as ``-VersionTag`` only when you run a local file or a
+   script block; see the README). It unpacks under
    ``%LOCALAPPDATA%\\WyssGeneva\\DBSAnnotator\\app`` and adds a Start Menu
-   shortcut unless you set ``DBS_ANNOTATOR_NO_START_MENU`` or pass
-   ``-NoStartMenuShortcut``.
+   shortcut.
 
 .. note::
    The first launch may take 5–10 seconds while Windows extracts bundled
